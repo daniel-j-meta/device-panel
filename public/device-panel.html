@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Light Control Panel</title>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				height: 100%;
+				width: 100%;
+			}
+
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+				background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				color: #fff;
+				padding: 2vh;
+			}
+
+			.panel {
+				background: rgba(255, 255, 255, 0.05);
+				backdrop-filter: blur(10px);
+				border-radius: 2vh;
+				padding: 3vh;
+				width: 100%;
+				max-width: 95vw;
+				height: 90vh;
+				box-shadow: 0 0.5vh 3vh rgba(0, 0, 0, 0.3);
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				display: grid;
+				grid-template-rows: 1fr 1fr 1fr;
+				row-gap: 1vh;
+			}
+
+			/* Row 1: Colors & Power */
+			.row-1 {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 3vh;
+				margin-bottom: 6vh;
+			}
+
+			.colors-container {
+				display: grid;
+				grid-template-rows: auto 1fr;
+				gap: 1.5vh;
+			}
+
+			.section-title {
+				font-size: 2vh;
+				font-weight: 600;
+				text-transform: uppercase;
+				letter-spacing: 0.1vh;
+				opacity: 0.6;
+			}
+
+			.colors-grid {
+				display: grid;
+				grid-template-rows: 1fr 1fr;
+				grid-template-columns: 1fr 1fr;
+				gap: 2vh;
+			}
+
+			.color-btn {
+				border: 0.3vh solid rgba(255, 255, 255, 0.2);
+				border-radius: 2vh;
+				background: rgba(255, 255, 255, 0.05);
+				cursor: pointer;
+				transition: all 0.2s ease;
+				position: relative;
+				overflow: hidden;
+			}
+
+			.color-btn::before {
+				content: '';
+				position: absolute;
+				inset: 0;
+				border-radius: 1.7vh;
+				opacity: 0.9;
+			}
+
+			.color-btn:active {
+				transform: scale(0.95);
+			}
+
+			.color-btn:hover {
+				border-color: rgba(255, 255, 255, 0.4);
+			}
+
+			.color-btn.red::before {
+				background: #ff4444;
+			}
+			.color-btn.orange::before {
+				background: #ff8c00;
+			}
+			.color-btn.custom::before {
+				background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			}
+
+			.power-container {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 2vh;
+			}
+
+			.power-label {
+				font-size: 2vh;
+				font-weight: 600;
+				text-transform: uppercase;
+				letter-spacing: 0.2vh;
+				opacity: 0.7;
+			}
+
+			.power-toggle {
+				width: 80%;
+				height: 70%;
+				background: rgba(255, 255, 255, 0.1);
+				border-radius: 10vh;
+				border: 0.3vh solid rgba(255, 255, 255, 0.2);
+				cursor: pointer;
+				transition: all 0.3s ease;
+				display: flex;
+				align-items: center;
+				padding: 0.8vh;
+			}
+
+			.power-toggle.on {
+				background: rgba(76, 175, 80, 0.3);
+				border-color: rgba(76, 175, 80, 0.5);
+			}
+
+			.power-toggle-knob {
+				width: calc(50% - 0.8vh);
+				height: 100%;
+				background: #fff;
+				border-radius: 10vh;
+				transition: transform 0.3s ease;
+				box-shadow: 0 0.4vh 1.2vh rgba(0, 0, 0, 0.3);
+			}
+
+			.power-toggle.on .power-toggle-knob {
+				transform: translateX(calc(100% + 1.6vh));
+			}
+
+			/* Row 2: Brightness */
+			.row-2 {
+				display: grid;
+				grid-template-columns: repeat(4, 1fr);
+				gap: 2vh;
+				margin-bottom: 0vh;
+			}
+
+			.brightness-btn {
+				border: 0.3vh solid rgba(255, 255, 255, 0.2);
+				border-radius: 2vh;
+				background: rgba(255, 255, 255, 0.05);
+				color: #fff;
+				font-size: 2vh;
+				font-weight: 500;
+				cursor: pointer;
+				transition: all 0.2s ease;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 1vh;
+			}
+
+			.brightness-btn:active {
+				transform: scale(0.95);
+			}
+
+			.brightness-btn.selected {
+				background: rgba(255, 255, 255, 0.2);
+				border-color: rgba(255, 255, 255, 0.5);
+			}
+
+			.icon {
+				width: 5vh;
+				height: 5vh;
+			}
+
+			/* Row 3: Temperature Slider */
+			.row-3 {
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				gap: 2vh;
+			}
+
+			.slider-container {
+				display: flex;
+				flex-direction: column;
+				gap: 1vh;
+			}
+
+			.slider {
+				width: 100%;
+				height: 4.5vh;
+				border-radius: 2.25vh;
+				background: linear-gradient(to right, #ff9a56 0%, #4a90e2 100%);
+				outline: none;
+				-webkit-appearance: none;
+			}
+
+			.slider::-webkit-slider-thumb {
+				-webkit-appearance: none;
+				appearance: none;
+				width: 5vh;
+				height: 5vh;
+				border-radius: 50%;
+				background: #fff;
+				cursor: pointer;
+				box-shadow: 0 0.2vh 0.8vh rgba(0, 0, 0, 0.3);
+				transition: transform 0.2s ease;
+			}
+
+			.slider::-webkit-slider-thumb:active {
+				transform: scale(1.2);
+			}
+
+			.slider::-moz-range-thumb {
+				width: 5vh;
+				height: 5vh;
+				border-radius: 50%;
+				background: #fff;
+				cursor: pointer;
+				border: none;
+				box-shadow: 0 0.2vh 0.8vh rgba(0, 0, 0, 0.3);
+			}
+
+			.slider-labels {
+				display: flex;
+				justify-content: space-between;
+				font-size: 1.6vh;
+				opacity: 0.6;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="panel">
+			<!-- Row 1: Colors and Power -->
+			<div class="row-1">
+				<div class="colors-container">
+					<div class="section-title">Color Picker</div>
+					<div class="colors-grid">
+						<button class="color-btn red" onclick="setColor('red')" aria-label="Red"></button>
+						<button
+							class="color-btn orange"
+							onclick="setColor('orange')"
+							aria-label="Orange"
+						></button>
+						<button
+							class="color-btn custom"
+							onclick="setColor('custom1')"
+							aria-label="Custom 1"
+						></button>
+						<button
+							class="color-btn custom"
+							onclick="setColor('custom2')"
+							aria-label="Custom 2"
+						></button>
+					</div>
+				</div>
+				<div class="power-container">
+					<div class="power-label">ON/OFF</div>
+					<div class="power-toggle" id="powerToggle" onclick="togglePower()">
+						<div class="power-toggle-knob"></div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Row 2: Brightness -->
+			<div class="row-2">
+				<button class="brightness-btn" onclick="setBrightness10()">
+					<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="5" />
+					</svg>
+					10%
+				</button>
+				<button class="brightness-btn" onclick="setBrightness50()">
+					<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="5" />
+						<line x1="12" y1="1" x2="12" y2="3" />
+						<line x1="12" y1="21" x2="12" y2="23" />
+					</svg>
+					50%
+				</button>
+				<button class="brightness-btn" onclick="setBrightness75()">
+					<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="5" />
+						<line x1="12" y1="1" x2="12" y2="3" />
+						<line x1="12" y1="21" x2="12" y2="23" />
+						<line x1="1" y1="12" x2="3" y2="12" />
+						<line x1="21" y1="12" x2="23" y2="12" />
+					</svg>
+					75%
+				</button>
+				<button class="brightness-btn" onclick="setBrightness100()">
+					<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="5" />
+						<line x1="12" y1="1" x2="12" y2="3" />
+						<line x1="12" y1="21" x2="12" y2="23" />
+						<line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+						<line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+						<line x1="1" y1="12" x2="3" y2="12" />
+						<line x1="21" y1="12" x2="23" y2="12" />
+						<line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+						<line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+					</svg>
+					100%
+				</button>
+			</div>
+
+			<!-- Row 3: Color Temperature -->
+			<div class="row-3">
+				<div class="section-title">Color Temperature</div>
+				<div class="slider-container">
+					<input
+						type="range"
+						min="0"
+						max="100"
+						value="50"
+						class="slider"
+						oninput="setColorTemperature(this.value)"
+						aria-label="Color Temperature"
+					/>
+					<div class="slider-labels">
+						<span>Warm</span>
+						<span>Cool</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			const BASE_URL = window.location.origin;
+			// Local state variables
+			let isPowerOn = false;
+			let currentBrightness = 50;
+			let currentColorTemperature = 50;
+
+			// Reusable GET request method
+			function makeGetRequest(route) {
+				// TODO: Replace ${BASE_URL} with your actual base URL
+				const url = `${BASE_URL}${route}`;
+
+				fetch(url, {
+					method: 'GET',
+				})
+					.then((response) => {
+						if (response.ok) {
+							console.log('Request successful:', route);
+						} else {
+							console.error('Request failed:', route);
+						}
+					})
+					.catch((error) => {
+						console.error('Error making request:', error);
+					});
+			}
+
+			// Get initial state from server
+			function getLivingRoomState() {
+				// TODO: Replace ${BASE_URL} with your actual base URL
+				const url = `${BASE_URL}/getLivingRoomState`;
+
+				fetch(url, {
+					method: 'GET',
+				})
+					.then((response) => response.json())
+					.then((data) => {
+						// Update local state
+						isPowerOn = data.body.on;
+						currentBrightness = data.body.brightness;
+						currentColorTemperature = data.body.colorTemperaturePct;
+						console.log(data);
+						console.log(
+							'Living room state:',
+							isPowerOn,
+							currentBrightness,
+							currentColorTemperature,
+						);
+						// Update UI
+						updatePowerToggle();
+						updateBrightnessButtons();
+						updateColorTemperatureSlider();
+					})
+					.catch((error) => {
+						console.error('Error getting living room state:', error);
+					});
+			}
+
+			// Update power toggle UI
+			function updatePowerToggle() {
+				const toggle = document.getElementById('powerToggle');
+				toggle.classList.toggle('on', isPowerOn);
+			}
+
+			// Update brightness buttons UI
+			function updateBrightnessButtons() {
+				// Remove selected class from all buttons
+				document.querySelectorAll('.brightness-btn').forEach((btn) => {
+					btn.classList.remove('selected');
+				});
+
+				// Add selected class to matching button
+				const buttons = {
+					10: document.querySelector('[onclick="setBrightness10()"]'),
+					50: document.querySelector('[onclick="setBrightness50()"]'),
+					75: document.querySelector('[onclick="setBrightness75()"]'),
+					100: document.querySelector('[onclick="setBrightness100()"]'),
+				};
+
+				if (buttons[currentBrightness]) {
+					buttons[currentBrightness].classList.add('selected');
+				}
+			}
+
+			// Update color temperature slider UI
+			function updateColorTemperatureSlider() {
+				const slider = document.querySelector('.slider');
+				slider.value = currentColorTemperature;
+			}
+
+			// Empty methods for you to implement
+			function togglePower() {
+				isPowerOn = !isPowerOn;
+				updatePowerToggle();
+
+				// Make GET request based on new state
+				const route = isPowerOn ? '/turnOnLivingRoom' : '/turnOffLivingRoom';
+				makeGetRequest(route);
+			}
+
+			function setColor(color) {
+				// TODO: Replace ${BASE_URL} with your actual base URL
+				const url = `${BASE_URL}/setLivingRoomColor`;
+
+				fetch(url, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({ color: color }),
+				})
+					.then((response) => {
+						if (response.ok) {
+							console.log('Color set to:', color);
+						} else {
+							console.error('Failed to set color');
+						}
+					})
+					.catch((error) => {
+						console.error('Error setting color:', error);
+					});
+			}
+
+			function setBrightness10() {
+				currentBrightness = 10;
+				updateBrightnessButtons();
+				makeGetRequest('/setLivingRoomBrightness10');
+			}
+
+			function setBrightness50() {
+				currentBrightness = 50;
+				updateBrightnessButtons();
+				makeGetRequest('/setLivingRoomBrightness50');
+			}
+
+			function setBrightness75() {
+				currentBrightness = 75;
+				updateBrightnessButtons();
+				makeGetRequest('/setLivingRoomBrightness75');
+			}
+
+			function setBrightness100() {
+				currentBrightness = 100;
+				updateBrightnessButtons();
+				makeGetRequest('/setLivingRoomBrightness100');
+			}
+
+			function setColorTemperature(value) {
+				currentColorTemperature = value;
+
+				// TODO: Replace YOUR_API_ENDPOINT with your actual endpoint
+				const url = `${BASE_URL}/setLivingRoomColorTemp`;
+
+				fetch(url, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({ pct: value }),
+				})
+					.then((response) => {
+						if (response.ok) {
+							console.log('Color temperature set to:', value);
+						} else {
+							console.error('Failed to set color temperature');
+						}
+					})
+					.catch((error) => {
+						console.error('Error setting color temperature:', error);
+					});
+			}
+
+			// Load state on page load
+			window.addEventListener('DOMContentLoaded', () => {
+				getLivingRoomState();
+			});
+		</script>
+	</body>
+</html>

@@ -21,6 +21,8 @@ interface RequestData {
 enum CapabilityType {
 	ON_OFF = 'devices.capabilities.on_off',
 	RANGE = 'devices.capabilities.range',
+	COLOR_TEMPERATURE = 'devices.capabilities.color_setting',
+	COLOR = 'devices.capabilities.color_setting',
 }
 type OtherHex = `${string}:${string}:${string}:${string}:${string}:${string}`;
 
@@ -30,5 +32,13 @@ type ColonSeparatedHex =
 
 const api_key = cloudflareEnv.GOVEE_API_KEY;
 
-export { CapabilityType, api_key };
+	ORANGE = 16744192,
+}
+
+enum ColorStr {
+	RED = 'red',
+	ORANGE = 'orange',
+}
+
+export { CapabilityType, api_key, ColorRGB, ColorStr };
 export type { Capability, Payload, RequestData, ColonSeparatedHex };

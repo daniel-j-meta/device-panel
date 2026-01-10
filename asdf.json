@@ -164,7 +164,11 @@
                                 "dataType": "ENUM",
                                 "options": [
                                     {
-                                        "name": "FallingSand",
+                                        "name": "Touching",
+                                        "value": 0
+                                    },
+                                    {
+                                        "name": "Rhythm",
                                         "value": 1
                                     },
                                     {
@@ -172,20 +176,28 @@
                                         "value": 2
                                     },
                                     {
-                                        "name": "ColorPainting",
+                                        "name": "Blend",
                                         "value": 3
                                     },
                                     {
-                                        "name": "Separation",
+                                        "name": "Luminous",
                                         "value": 4
                                     },
                                     {
-                                        "name": "Spectrum",
+                                        "name": "Fantasy",
                                         "value": 5
                                     },
                                     {
-                                        "name": "Alternate",
+                                        "name": "Stippling",
                                         "value": 6
+                                    },
+                                    {
+                                        "name": "Splash",
+                                        "value": 7
+                                    },
+                                    {
+                                        "name": "Spring",
+                                        "value": 8
                                     }
                                 ],
                                 "required": true
@@ -526,7 +538,11 @@
                                 "dataType": "ENUM",
                                 "options": [
                                     {
-                                        "name": "FallingSand",
+                                        "name": "Touching",
+                                        "value": 0
+                                    },
+                                    {
+                                        "name": "Rhythm",
                                         "value": 1
                                     },
                                     {
@@ -534,20 +550,28 @@
                                         "value": 2
                                     },
                                     {
-                                        "name": "ColorPainting",
+                                        "name": "Blend",
                                         "value": 3
                                     },
                                     {
-                                        "name": "Separation",
+                                        "name": "Luminous",
                                         "value": 4
                                     },
                                     {
-                                        "name": "Spectrum",
+                                        "name": "Fantasy",
                                         "value": 5
                                     },
                                     {
-                                        "name": "Alternate",
+                                        "name": "Stippling",
                                         "value": 6
+                                    },
+                                    {
+                                        "name": "Splash",
+                                        "value": 7
+                                    },
+                                    {
+                                        "name": "Spring",
+                                        "value": 8
                                     }
                                 ],
                                 "required": true
@@ -849,7 +873,7 @@
                                 },
                                 "dataType": "Array",
                                 "elementRange": {
-                                    "min": 0,
+                                    "min": 0,f
                                     "max": 14
                                 },
                                 "elementType": "INTEGER",
@@ -1524,6 +1548,396 @@
                         "range": {
                             "min": 2000,
                             "max": 9000,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.dynamic_scene",
+                    "instance": "lightScene",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": []
+                    }
+                },
+                {
+                    "type": "devices.capabilities.dynamic_scene",
+                    "instance": "diyScene",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": []
+                    }
+                }
+            ]
+        },
+        {
+            "sku": "H6006",
+            "device": "4D:9A:60:74:F4:F2:75:DE",
+            "deviceName": "LivingRoomOrb",
+            "type": "devices.types.light",
+            "capabilities": [
+                {
+                    "type": "devices.capabilities.on_off",
+                    "instance": "powerSwitch",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": [
+                            {
+                                "name": "on",
+                                "value": 1
+                            },
+                            {
+                                "name": "off",
+                                "value": 0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "devices.capabilities.range",
+                    "instance": "brightness",
+                    "parameters": {
+                        "unit": "unit.percent",
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 1,
+                            "max": 100,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.color_setting",
+                    "instance": "colorRgb",
+                    "parameters": {
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 0,
+                            "max": 16777215,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.color_setting",
+                    "instance": "colorTemperatureK",
+                    "parameters": {
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 2000,
+                            "max": 9000,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.dynamic_scene",
+                    "instance": "lightScene",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": []
+                    }
+                },
+                {
+                    "type": "devices.capabilities.dynamic_scene",
+                    "instance": "diyScene",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": []
+                    }
+                }
+            ]
+        },
+        {
+            "sku": "H600B",
+            "device": "F3:F7:A8:46:74:06:CC:84",
+            "deviceName": "CredenzaLamp",
+            "type": "devices.types.light",
+            "capabilities": [
+                {
+                    "type": "devices.capabilities.on_off",
+                    "instance": "powerSwitch",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": [
+                            {
+                                "name": "on",
+                                "value": 1
+                            },
+                            {
+                                "name": "off",
+                                "value": 0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "devices.capabilities.range",
+                    "instance": "brightness",
+                    "parameters": {
+                        "unit": "unit.percent",
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 1,
+                            "max": 100,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.color_setting",
+                    "instance": "colorRgb",
+                    "parameters": {
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 0,
+                            "max": 16777215,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.color_setting",
+                    "instance": "colorTemperatureK",
+                    "parameters": {
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 2700,
+                            "max": 6500,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.dynamic_scene",
+                    "instance": "lightScene",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": []
+                    }
+                },
+                {
+                    "type": "devices.capabilities.dynamic_scene",
+                    "instance": "diyScene",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": []
+                    }
+                }
+            ]
+        },
+        {
+            "sku": "H600B",
+            "device": "09:38:A8:46:74:06:BB:00",
+            "deviceName": "MonitorBulb1",
+            "type": "devices.types.light",
+            "capabilities": [
+                {
+                    "type": "devices.capabilities.on_off",
+                    "instance": "powerSwitch",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": [
+                            {
+                                "name": "on",
+                                "value": 1
+                            },
+                            {
+                                "name": "off",
+                                "value": 0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "devices.capabilities.range",
+                    "instance": "brightness",
+                    "parameters": {
+                        "unit": "unit.percent",
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 1,
+                            "max": 100,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.color_setting",
+                    "instance": "colorRgb",
+                    "parameters": {
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 0,
+                            "max": 16777215,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.color_setting",
+                    "instance": "colorTemperatureK",
+                    "parameters": {
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 2700,
+                            "max": 6500,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.dynamic_scene",
+                    "instance": "lightScene",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": []
+                    }
+                },
+                {
+                    "type": "devices.capabilities.dynamic_scene",
+                    "instance": "diyScene",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": []
+                    }
+                }
+            ]
+        },
+        {
+            "sku": "H600B",
+            "device": "9B:A3:98:88:E0:FB:1A:FC",
+            "deviceName": "UnderMonitorBulb2",
+            "type": "devices.types.light",
+            "capabilities": [
+                {
+                    "type": "devices.capabilities.on_off",
+                    "instance": "powerSwitch",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": [
+                            {
+                                "name": "on",
+                                "value": 1
+                            },
+                            {
+                                "name": "off",
+                                "value": 0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "devices.capabilities.range",
+                    "instance": "brightness",
+                    "parameters": {
+                        "unit": "unit.percent",
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 1,
+                            "max": 100,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.color_setting",
+                    "instance": "colorRgb",
+                    "parameters": {
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 0,
+                            "max": 16777215,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.color_setting",
+                    "instance": "colorTemperatureK",
+                    "parameters": {
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 2700,
+                            "max": 6500,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.dynamic_scene",
+                    "instance": "lightScene",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": []
+                    }
+                },
+                {
+                    "type": "devices.capabilities.dynamic_scene",
+                    "instance": "diyScene",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": []
+                    }
+                }
+            ]
+        },
+        {
+            "sku": "H600B",
+            "device": "16:84:A8:46:74:11:49:F0",
+            "deviceName": "MonitorBulb3",
+            "type": "devices.types.light",
+            "capabilities": [
+                {
+                    "type": "devices.capabilities.on_off",
+                    "instance": "powerSwitch",
+                    "parameters": {
+                        "dataType": "ENUM",
+                        "options": [
+                            {
+                                "name": "on",
+                                "value": 1
+                            },
+                            {
+                                "name": "off",
+                                "value": 0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "devices.capabilities.range",
+                    "instance": "brightness",
+                    "parameters": {
+                        "unit": "unit.percent",
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 1,
+                            "max": 100,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.color_setting",
+                    "instance": "colorRgb",
+                    "parameters": {
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 0,
+                            "max": 16777215,
+                            "precision": 1
+                        }
+                    }
+                },
+                {
+                    "type": "devices.capabilities.color_setting",
+                    "instance": "colorTemperatureK",
+                    "parameters": {
+                        "dataType": "INTEGER",
+                        "range": {
+                            "min": 2700,
+                            "max": 6500,
                             "precision": 1
                         }
                     }
