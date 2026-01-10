@@ -32,6 +32,8 @@ type ColonSeparatedHex =
 
 const api_key = cloudflareEnv.GOVEE_API_KEY;
 
+enum ColorRGB {
+	RED = 16711680,
 	ORANGE = 16744192,
 }
 
