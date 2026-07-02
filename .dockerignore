@@ -1,0 +1,14 @@
+node_modules
+.git
+.wrangler
+.next
+out
+dist
+coverage
+*.log
+.dev.vars
+.env*
+npm-debug.log*
+Dockerfile
+.dockerignore
+docker-compose.yml

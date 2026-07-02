@@ -7,12 +7,21 @@ const PORT = 80;
 const router = AutoRouter();
 const living_room = new LivingRoom();
 
+// Return a real HTTP error status so the UI can detect a failed command and
+// roll back its optimistic update. (AutoRouter otherwise serializes a returned
+// object to HTTP 200, hiding failures from the client.)
+const err = (e: unknown, status = 500) =>
+	new Response(
+		JSON.stringify({ status, body: e instanceof Error ? e.message : String(e) }),
+		{ status, headers: { 'content-type': 'application/json' } },
+	);
+
 router.get('/turnOnLivingRoom', async () => {
 	try {
 		await living_room.on();
 		return { status: 200, body: 'Turned Living Room On' };
 	} catch (e) {
-		return { status: 500, body: e };
+		return err(e);
 	}
 });
 
@@ -21,7 +30,7 @@ router.get('/turnOffLivingRoom', async () => {
 		await living_room.off();
 		return { status: 200, body: 'Turned Living Room Off' };
 	} catch (e) {
-		return { status: 500, body: e };
+		return err(e);
 	}
 });
 
@@ -30,7 +39,7 @@ router.get('/setLivingRoomBrightness10', async () => {
 		await living_room.setBrightness(Brightness.B10);
 		return { status: 200, body: 'Set Brightness 25' };
 	} catch (e) {
-		return { status: 500, body: e };
+		return err(e);
 	}
 });
 
@@ -39,7 +48,7 @@ router.get('/setLivingRoomBrightness50', async () => {
 		await living_room.setBrightness(Brightness.B50);
 		return { status: 200, body: 'Set Brightness 50' };
 	} catch (e) {
-		return { status: 500, body: e };
+		return err(e);
 	}
 });
 
@@ -48,7 +57,7 @@ router.get('/setLivingRoomBrightness75', async () => {
 		await living_room.setBrightness(Brightness.B75);
 		return { status: 200, body: 'Set Brightness 75' };
 	} catch (e) {
-		return { status: 500, body: e };
+		return err(e);
 	}
 });
 
@@ -57,7 +66,7 @@ router.get('/setLivingRoomBrightness100', async () => {
 		await living_room.setBrightness(Brightness.B100);
 		return { status: 200, body: 'Set Brightness 100' };
 	} catch (e) {
-		return { status: 500, body: e };
+		return err(e);
 	}
 });
 
@@ -67,7 +76,7 @@ router.post('/setLivingRoomColorTemp', async (request) => {
 		const tempK = await living_room.setColorTemperature(pct);
 		return { status: 200, body: `Set color temp ${pct} ${tempK}K` };
 	} catch (e) {
-		return { status: 500, body: e };
+		return err(e);
 	}
 });
 
@@ -80,7 +89,7 @@ router.get('/getLivingRoomState', async () => {
 			body: living_room_state,
 		};
 	} catch (e) {
-		return { status: 500, body: JSON.stringify(e) };
+		return err(e);
 	}
 });
 
@@ -91,7 +100,7 @@ router.post('/setLivingRoomColor', async (request) => {
 		await living_room.setColor(color_enum);
 		return { status: 200, body: `Set Living Room Color ${color_enum}` };
 	} catch (e) {
-		return { status: 500, body: JSON.stringify(e) };
+		return err(e);
 	}
 });
 

@@ -2,7 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 		<title>Light Control Panel</title>
 		<style>
 			* {
@@ -11,90 +11,129 @@
 				box-sizing: border-box;
 			}
 
-			html,
-			body {
-				height: 100%;
-				width: 100%;
+			:root {
+				/* One set of fluid tokens drives spacing/radius everywhere, so the
+				   layout scales smoothly instead of snapping between vh values. */
+				--gap: clamp(0.75rem, 2.2vmin, 1.75rem);
+				--pad: clamp(1rem, 3vmin, 2.5rem);
+				--radius: clamp(0.5rem, 1.5vmin, 1rem);
+				--surface: rgba(255, 255, 255, 0.05);
+				--surface-hover: rgba(255, 255, 255, 0.12);
+				--border-col: rgba(255, 255, 255, 0.18);
+			}
+
+			html {
+				-webkit-text-size-adjust: 100%;
 			}
 
 			body {
 				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 				background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-				display: flex;
-				justify-content: center;
-				align-items: center;
 				color: #fff;
-				padding: 2vh;
+				min-height: 100dvh;
 			}
 
+			/* Full-bleed: fills the viewport edge-to-edge, no card/border/shadow.
+			   Flex column with min-height (not fixed height) means it fills large
+			   screens but can grow and scroll on short ones. */
 			.panel {
-				background: rgba(255, 255, 255, 0.05);
-				backdrop-filter: blur(10px);
-				border-radius: 2vh;
-				padding: 3vh;
+				min-height: 100dvh;
 				width: 100%;
-				max-width: 95vw;
-				height: 90vh;
-				box-shadow: 0 0.5vh 3vh rgba(0, 0, 0, 0.3);
-				border: 1px solid rgba(255, 255, 255, 0.1);
-				display: grid;
-				grid-template-rows: 1fr 1fr 1fr;
-				row-gap: 1vh;
+				padding: max(var(--pad), env(safe-area-inset-top))
+					max(var(--pad), env(safe-area-inset-right))
+					max(var(--pad), env(safe-area-inset-bottom))
+					max(var(--pad), env(safe-area-inset-left));
+				display: flex;
+				flex-direction: column;
+				gap: var(--gap);
+			}
+
+			/* Connection status: idle (grey) -> ok (green) / error (red), reflecting
+			   whether the last command reached the server. */
+			.status-dot {
+				position: fixed;
+				top: max(0.75rem, env(safe-area-inset-top));
+				right: max(0.75rem, env(safe-area-inset-right));
+				width: 0.75rem;
+				height: 0.75rem;
+				border-radius: 50%;
+				background: #7a8296;
+				box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25);
+				transition: background 0.3s ease, box-shadow 0.3s ease;
+				z-index: 10;
+				pointer-events: none;
+			}
+
+			.status-dot.ok {
+				background: #4caf50;
+				box-shadow: 0 0 8px rgba(76, 175, 80, 0.7);
+			}
+
+			.status-dot.error {
+				background: #ff5555;
+				box-shadow: 0 0 8px rgba(255, 85, 85, 0.85);
 			}
 
 			/* Row 1: Colors & Power */
 			.row-1 {
+				flex: 1 1 0;
 				display: grid;
 				grid-template-columns: 1fr 1fr;
-				gap: 3vh;
-				margin-bottom: 6vh;
+				gap: var(--gap);
+				min-height: 0;
 			}
 
 			.colors-container {
 				display: grid;
 				grid-template-rows: auto 1fr;
-				gap: 1.5vh;
+				gap: var(--gap);
+				min-height: 0;
 			}
 
 			.section-title {
-				font-size: 2vh;
+				font-size: clamp(0.7rem, 1.6vmin, 1rem);
 				font-weight: 600;
 				text-transform: uppercase;
-				letter-spacing: 0.1vh;
+				letter-spacing: 0.08em;
 				opacity: 0.6;
 			}
 
 			.colors-grid {
 				display: grid;
-				grid-template-rows: 1fr 1fr;
 				grid-template-columns: 1fr 1fr;
-				gap: 2vh;
+				grid-template-rows: 1fr 1fr;
+				gap: var(--gap);
+				min-height: 0;
 			}
 
 			.color-btn {
-				border: 0.3vh solid rgba(255, 255, 255, 0.2);
-				border-radius: 2vh;
-				background: rgba(255, 255, 255, 0.05);
+				border: 1px solid var(--border-col);
+				border-radius: var(--radius);
+				background: var(--surface);
 				cursor: pointer;
-				transition: all 0.2s ease;
 				position: relative;
 				overflow: hidden;
+				min-height: 3rem;
+				/* Transition only what changes — never `all` — to avoid the browser
+				   tracking layout properties on every interaction. */
+				transition: transform 0.15s ease, border-color 0.15s ease;
+				touch-action: manipulation;
+				-webkit-tap-highlight-color: transparent;
 			}
 
 			.color-btn::before {
 				content: '';
 				position: absolute;
 				inset: 0;
-				border-radius: 1.7vh;
 				opacity: 0.9;
 			}
 
 			.color-btn:active {
-				transform: scale(0.95);
+				transform: scale(0.97);
 			}
 
 			.color-btn:hover {
-				border-color: rgba(255, 255, 255, 0.4);
+				border-color: rgba(255, 255, 255, 0.45);
 			}
 
 			.color-btn.red::before {
@@ -112,144 +151,256 @@
 				flex-direction: column;
 				align-items: center;
 				justify-content: center;
-				gap: 2vh;
+				gap: var(--gap);
 			}
 
 			.power-label {
-				font-size: 2vh;
+				font-size: clamp(0.7rem, 1.6vmin, 1rem);
 				font-weight: 600;
 				text-transform: uppercase;
-				letter-spacing: 0.2vh;
+				letter-spacing: 0.1em;
 				opacity: 0.7;
 			}
 
 			.power-toggle {
-				width: 80%;
-				height: 70%;
+				--toggle-pad: 0.4rem;
+				width: min(100%, 26rem);
+				height: clamp(3rem, 9vmin, 5.5rem);
 				background: rgba(255, 255, 255, 0.1);
-				border-radius: 10vh;
-				border: 0.3vh solid rgba(255, 255, 255, 0.2);
+				border-radius: 999px;
+				border: 1px solid var(--border-col);
 				cursor: pointer;
-				transition: all 0.3s ease;
+				transition: background 0.3s ease, border-color 0.3s ease;
 				display: flex;
 				align-items: center;
-				padding: 0.8vh;
+				padding: var(--toggle-pad);
+				/* none so a horizontal drag on the knob doesn't scroll the page. */
+				touch-action: none;
+				user-select: none;
+				-webkit-user-select: none;
+				-webkit-tap-highlight-color: transparent;
 			}
 
 			.power-toggle.on {
 				background: rgba(76, 175, 80, 0.3);
-				border-color: rgba(76, 175, 80, 0.5);
+				border-color: rgba(76, 175, 80, 0.55);
 			}
 
 			.power-toggle-knob {
-				width: calc(50% - 0.8vh);
+				width: calc(50% - var(--toggle-pad));
 				height: 100%;
 				background: #fff;
-				border-radius: 10vh;
+				border-radius: 999px;
+				cursor: grab;
 				transition: transform 0.3s ease;
-				box-shadow: 0 0.4vh 1.2vh rgba(0, 0, 0, 0.3);
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 			}
 
 			.power-toggle.on .power-toggle-knob {
-				transform: translateX(calc(100% + 1.6vh));
+				transform: translateX(calc(100% + var(--toggle-pad) * 2));
+			}
+
+			/* While dragging: kill the transition so the knob tracks the pointer 1:1. */
+			.power-toggle.dragging {
+				cursor: grabbing;
+			}
+
+			.power-toggle.dragging .power-toggle-knob {
+				cursor: grabbing;
+				transition: none;
+			}
+
+			.power-toggle:focus-visible {
+				outline: none;
+				box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.4);
 			}
 
 			/* Row 2: Brightness */
 			.row-2 {
+				flex: 1 1 0;
 				display: grid;
 				grid-template-columns: repeat(4, 1fr);
-				gap: 2vh;
-				margin-bottom: 0vh;
+				gap: var(--gap);
+				min-height: 0;
 			}
 
 			.brightness-btn {
-				border: 0.3vh solid rgba(255, 255, 255, 0.2);
-				border-radius: 2vh;
-				background: rgba(255, 255, 255, 0.05);
+				border: 1px solid var(--border-col);
+				border-radius: var(--radius);
+				background: var(--surface);
 				color: #fff;
-				font-size: 2vh;
+				font-size: clamp(0.85rem, 1.8vmin, 1.25rem);
 				font-weight: 500;
 				cursor: pointer;
-				transition: all 0.2s ease;
+				transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 				display: flex;
 				flex-direction: column;
 				align-items: center;
 				justify-content: center;
-				gap: 1vh;
+				gap: clamp(0.5rem, 1.5vmin, 1rem);
+				min-height: 3.5rem;
+				touch-action: manipulation;
+				-webkit-tap-highlight-color: transparent;
 			}
 
 			.brightness-btn:active {
-				transform: scale(0.95);
+				transform: scale(0.97);
+			}
+
+			.brightness-btn:hover {
+				background: var(--surface-hover);
 			}
 
 			.brightness-btn.selected {
-				background: rgba(255, 255, 255, 0.2);
-				border-color: rgba(255, 255, 255, 0.5);
+				background: rgba(255, 180, 76, 0.18);
+				border-color: rgba(255, 180, 76, 0.85);
+				box-shadow: 0 0 0 1px rgba(255, 180, 76, 0.55), 0 0 20px rgba(255, 180, 76, 0.25);
+				color: #ffd9a3;
 			}
 
 			.icon {
-				width: 5vh;
-				height: 5vh;
+				width: clamp(2rem, 5vmin, 3rem);
+				height: clamp(2rem, 5vmin, 3rem);
 			}
 
-			/* Row 3: Temperature Slider */
+			/* Optimistic-UI failure feedback: a brief red flash shown when a
+			   command didn't land and the control rolled back to its real state. */
+			.error-flash {
+				animation: errorFlash 0.5s ease;
+			}
+
+			@keyframes errorFlash {
+				0%,
+				100% {
+					border-color: var(--border-col);
+				}
+				40% {
+					border-color: #ff5555;
+					background: rgba(255, 85, 85, 0.22);
+				}
+			}
+
+			/* Toggle is disabled while its request is in flight (prevents desync
+			   from rapid taps); dim it so the wait is visible. */
+			.power-toggle.busy {
+				opacity: 0.7;
+				cursor: progress;
+			}
+
+			/* Row 3: Temperature Slider — equal-height band; the slider fills it. */
 			.row-3 {
+				flex: 1 1 0;
+				min-height: 0;
 				display: flex;
 				flex-direction: column;
-				justify-content: center;
-				gap: 2vh;
+				gap: var(--gap);
 			}
 
 			.slider-container {
+				flex: 1;
+				min-height: 0;
 				display: flex;
 				flex-direction: column;
-				gap: 1vh;
+				gap: clamp(0.4rem, 1vmin, 0.75rem);
 			}
 
 			.slider {
+				--pct: 50%;
 				width: 100%;
-				height: 4.5vh;
-				border-radius: 2.25vh;
-				background: linear-gradient(to right, #ff9a56 0%, #4a90e2 100%);
+				flex: 1;
+				min-height: clamp(2.5rem, 4.5vmin, 3.5rem);
+				border-radius: 999px;
+				/* Warm (amber) -> cool (white) spectrum, with everything to the right
+				   of the thumb dimmed (via --pct) so the current level reads as a fill
+				   while the full temperature spectrum stays visible. */
+				background:
+					linear-gradient(
+						to right,
+						rgba(10, 12, 24, 0) 0%,
+						rgba(10, 12, 24, 0) var(--pct),
+						rgba(10, 12, 24, 0.5) var(--pct),
+						rgba(10, 12, 24, 0.5) 100%
+					),
+					linear-gradient(to right, #ff9a56 0%, #ffffff 100%);
+				border: 1px solid rgba(255, 255, 255, 0.15);
+				box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
 				outline: none;
 				-webkit-appearance: none;
+				appearance: none;
+				/* none (not manipulation) so a horizontal drag doesn't scroll the page. */
+				touch-action: none;
+				cursor: pointer;
 			}
 
 			.slider::-webkit-slider-thumb {
 				-webkit-appearance: none;
 				appearance: none;
-				width: 5vh;
-				height: 5vh;
+				width: clamp(2.25rem, 5vmin, 3.25rem);
+				height: clamp(2.25rem, 5vmin, 3.25rem);
 				border-radius: 50%;
 				background: #fff;
-				cursor: pointer;
-				box-shadow: 0 0.2vh 0.8vh rgba(0, 0, 0, 0.3);
-				transition: transform 0.2s ease;
+				border: 2px solid rgba(0, 0, 0, 0.18);
+				cursor: grab;
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+				transition: transform 0.12s ease, box-shadow 0.12s ease;
 			}
 
 			.slider::-webkit-slider-thumb:active {
-				transform: scale(1.2);
+				cursor: grabbing;
+				transform: scale(1.15);
+			}
+
+			.slider:focus-visible::-webkit-slider-thumb {
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 0 0.35rem rgba(255, 255, 255, 0.4);
 			}
 
 			.slider::-moz-range-thumb {
-				width: 5vh;
-				height: 5vh;
+				width: clamp(2.25rem, 5vmin, 3.25rem);
+				height: clamp(2.25rem, 5vmin, 3.25rem);
 				border-radius: 50%;
 				background: #fff;
-				cursor: pointer;
-				border: none;
-				box-shadow: 0 0.2vh 0.8vh rgba(0, 0, 0, 0.3);
+				cursor: grab;
+				border: 2px solid rgba(0, 0, 0, 0.18);
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+			}
+
+			.slider:focus-visible::-moz-range-thumb {
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 0 0.35rem rgba(255, 255, 255, 0.4);
 			}
 
 			.slider-labels {
 				display: flex;
 				justify-content: space-between;
-				font-size: 1.6vh;
+				align-items: center;
+				font-size: clamp(0.7rem, 1.6vmin, 1rem);
+			}
+
+			.slider-labels .label-end {
 				opacity: 0.6;
+			}
+
+			/* Narrow screens: stack colors above power, collapse brightness to 2x2. */
+			@media (max-width: 640px) {
+				.row-1 {
+					grid-template-columns: 1fr;
+				}
+				.row-2 {
+					grid-template-columns: 1fr 1fr;
+				}
+				.power-toggle {
+					height: 3.5rem;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				* {
+					transition-duration: 0.01ms !important;
+				}
 			}
 		</style>
 	</head>
 	<body>
+		<div class="status-dot" id="statusDot" title="Not connected" aria-label="Not connected"></div>
 		<div class="panel">
 			<!-- Row 1: Colors and Power -->
 			<div class="row-1">
@@ -276,7 +427,14 @@
 				</div>
 				<div class="power-container">
 					<div class="power-label">ON/OFF</div>
-					<div class="power-toggle" id="powerToggle" onclick="togglePower()">
+					<div
+						class="power-toggle"
+						id="powerToggle"
+						role="switch"
+						aria-checked="false"
+						aria-label="Power"
+						tabindex="0"
+					>
 						<div class="power-toggle-knob"></div>
 					</div>
 				</div>
@@ -284,13 +442,13 @@
 
 			<!-- Row 2: Brightness -->
 			<div class="row-2">
-				<button class="brightness-btn" onclick="setBrightness10()">
+				<button class="brightness-btn" data-brightness="10" onclick="setBrightness(10)">
 					<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<circle cx="12" cy="12" r="5" />
 					</svg>
 					10%
 				</button>
-				<button class="brightness-btn" onclick="setBrightness50()">
+				<button class="brightness-btn" data-brightness="50" onclick="setBrightness(50)">
 					<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<circle cx="12" cy="12" r="5" />
 						<line x1="12" y1="1" x2="12" y2="3" />
@@ -298,7 +456,7 @@
 					</svg>
 					50%
 				</button>
-				<button class="brightness-btn" onclick="setBrightness75()">
+				<button class="brightness-btn" data-brightness="75" onclick="setBrightness(75)">
 					<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<circle cx="12" cy="12" r="5" />
 						<line x1="12" y1="1" x2="12" y2="3" />
@@ -308,7 +466,7 @@
 					</svg>
 					75%
 				</button>
-				<button class="brightness-btn" onclick="setBrightness100()">
+				<button class="brightness-btn" data-brightness="100" onclick="setBrightness(100)">
 					<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<circle cx="12" cy="12" r="5" />
 						<line x1="12" y1="1" x2="12" y2="3" />
@@ -334,12 +492,14 @@
 						max="100"
 						value="50"
 						class="slider"
-						oninput="setColorTemperature(this.value)"
+						id="tempSlider"
+						oninput="onTempInput(this.value)"
+						onchange="onTempCommit(this.value)"
 						aria-label="Color Temperature"
 					/>
 					<div class="slider-labels">
-						<span>Warm</span>
-						<span>Cool</span>
+						<span class="label-end">Warm</span>
+						<span class="label-end">Cool</span>
 					</div>
 				</div>
 			</div>
@@ -352,24 +512,50 @@
 			let currentBrightness = 50;
 			let currentColorTemperature = 50;
 
-			// Reusable GET request method
+			// Connection status dot: reflects whether the last command reached the
+			// server (green) or failed (red).
+			function setConnectionStatus(ok) {
+				const dot = document.getElementById('statusDot');
+				if (!dot) return;
+				dot.classList.toggle('ok', ok);
+				dot.classList.toggle('error', !ok);
+				dot.title = ok ? 'Connected' : 'Last command failed';
+				dot.setAttribute('aria-label', dot.title);
+			}
+
+			// Reusable GET request method. Resolves to true on success, false on a
+			// non-OK response or network error, so callers can roll back the UI.
 			function makeGetRequest(route) {
-				// TODO: Replace ${BASE_URL} with your actual base URL
 				const url = `${BASE_URL}${route}`;
 
-				fetch(url, {
+				return fetch(url, {
 					method: 'GET',
 				})
 					.then((response) => {
 						if (response.ok) {
 							console.log('Request successful:', route);
-						} else {
-							console.error('Request failed:', route);
+							setConnectionStatus(true);
+							return true;
 						}
+						console.error('Request failed:', route);
+						setConnectionStatus(false);
+						return false;
 					})
 					.catch((error) => {
 						console.error('Error making request:', error);
+						setConnectionStatus(false);
+						return false;
 					});
+			}
+
+			// Briefly flash a control red — used when an optimistic update is rolled
+			// back because the command didn't land.
+			function flashError(el) {
+				if (!el) return;
+				el.classList.remove('error-flash');
+				void el.offsetWidth; // force reflow so the animation restarts
+				el.classList.add('error-flash');
+				setTimeout(() => el.classList.remove('error-flash'), 600);
 			}
 
 			// Get initial state from server
@@ -380,26 +566,28 @@
 				fetch(url, {
 					method: 'GET',
 				})
-					.then((response) => response.json())
+					.then((response) => {
+						if (!response.ok) throw new Error(`state fetch failed (${response.status})`);
+						return response.json();
+					})
 					.then((data) => {
-						// Update local state
-						isPowerOn = data.body.on;
-						currentBrightness = data.body.brightness;
-						currentColorTemperature = data.body.colorTemperaturePct;
-						console.log(data);
-						console.log(
-							'Living room state:',
-							isPowerOn,
-							currentBrightness,
-							currentColorTemperature,
-						);
+						// Only apply values the server actually returned, so a partial or
+						// error payload can't poison local state with undefined/NaN.
+						const s = (data && data.body) || {};
+						if (typeof s.on === 'boolean') isPowerOn = s.on;
+						if (Number.isFinite(Number(s.brightness))) currentBrightness = Number(s.brightness);
+						if (Number.isFinite(Number(s.colorTemperaturePct))) {
+							currentColorTemperature = Number(s.colorTemperaturePct);
+						}
 						// Update UI
 						updatePowerToggle();
 						updateBrightnessButtons();
 						updateColorTemperatureSlider();
+						setConnectionStatus(true);
 					})
 					.catch((error) => {
 						console.error('Error getting living room state:', error);
+						setConnectionStatus(false);
 					});
 			}
 
@@ -407,42 +595,59 @@
 			function updatePowerToggle() {
 				const toggle = document.getElementById('powerToggle');
 				toggle.classList.toggle('on', isPowerOn);
+				toggle.setAttribute('aria-checked', String(isPowerOn));
 			}
 
 			// Update brightness buttons UI
 			function updateBrightnessButtons() {
-				// Remove selected class from all buttons
 				document.querySelectorAll('.brightness-btn').forEach((btn) => {
-					btn.classList.remove('selected');
+					const isSelected = Number(btn.dataset.brightness) === Number(currentBrightness);
+					btn.classList.toggle('selected', isSelected);
 				});
-
-				// Add selected class to matching button
-				const buttons = {
-					10: document.querySelector('[onclick="setBrightness10()"]'),
-					50: document.querySelector('[onclick="setBrightness50()"]'),
-					75: document.querySelector('[onclick="setBrightness75()"]'),
-					100: document.querySelector('[onclick="setBrightness100()"]'),
-				};
-
-				if (buttons[currentBrightness]) {
-					buttons[currentBrightness].classList.add('selected');
-				}
 			}
 
 			// Update color temperature slider UI
 			function updateColorTemperatureSlider() {
-				const slider = document.querySelector('.slider');
+				const slider = document.getElementById('tempSlider');
 				slider.value = currentColorTemperature;
+				updateTempFill();
 			}
 
-			// Empty methods for you to implement
+			// Move the "fill" boundary (dimmed portion) to match the current value.
+			function updateTempFill() {
+				const slider = document.getElementById('tempSlider');
+				const pct = Number(currentColorTemperature);
+				slider.style.setProperty('--pct', `${Number.isFinite(pct) ? pct : 50}%`);
+			}
+
+			// Power toggle: optimistic flip, guarded against overlapping requests,
+			// rolls back if the command fails.
+			let powerBusy = false;
+
 			function togglePower() {
+				if (powerBusy) return;
+
+				const toggle = document.getElementById('powerToggle');
+				const previous = isPowerOn;
+
+				// Optimistic: move the knob now.
 				isPowerOn = !isPowerOn;
 				updatePowerToggle();
 
-				// Make GET request based on new state
+				powerBusy = true;
+				toggle.classList.add('busy');
+
 				const route = isPowerOn ? '/turnOnLivingRoom' : '/turnOffLivingRoom';
-				makeGetRequest(route);
+				makeGetRequest(route).then((ok) => {
+					powerBusy = false;
+					toggle.classList.remove('busy');
+					if (!ok) {
+						// Roll back to the real state and flag the failure.
+						isPowerOn = previous;
+						updatePowerToggle();
+						flashError(toggle);
+					}
+				});
 			}
 
 			function setColor(color) {
@@ -468,34 +673,28 @@
 					});
 			}
 
-			function setBrightness10() {
-				currentBrightness = 10;
+			// Brightness: optimistic highlight, rolls back if the command fails.
+			function setBrightness(value) {
+				const previous = currentBrightness;
+
+				// Optimistic: highlight the tapped button now.
+				currentBrightness = value;
 				updateBrightnessButtons();
-				makeGetRequest('/setLivingRoomBrightness10');
+
+				makeGetRequest(`/setLivingRoomBrightness${value}`).then((ok) => {
+					if (!ok) {
+						currentBrightness = previous;
+						updateBrightnessButtons();
+						flashError(document.querySelector(`[data-brightness="${value}"]`));
+					}
+				});
 			}
 
-			function setBrightness50() {
-				currentBrightness = 50;
-				updateBrightnessButtons();
-				makeGetRequest('/setLivingRoomBrightness50');
-			}
-
-			function setBrightness75() {
-				currentBrightness = 75;
-				updateBrightnessButtons();
-				makeGetRequest('/setLivingRoomBrightness75');
-			}
-
-			function setBrightness100() {
-				currentBrightness = 100;
-				updateBrightnessButtons();
-				makeGetRequest('/setLivingRoomBrightness100');
-			}
-
-			function setColorTemperature(value) {
-				currentColorTemperature = value;
-
-				// TODO: Replace YOUR_API_ENDPOINT with your actual endpoint
+			// --- Color temperature: instant local feedback, commit-only network ---
+			// Dragging updates the UI live but sends NOTHING; the single POST fires
+			// only when the drag/keyboard change is committed (pointer up / key up),
+			// so the worker and Govee API see exactly one request per adjustment.
+			function sendColorTemperature(value) {
 				const url = `${BASE_URL}/setLivingRoomColorTemp`;
 
 				fetch(url, {
@@ -503,19 +702,104 @@
 					headers: {
 						'Content-Type': 'application/json',
 					},
-					body: JSON.stringify({ pct: value }),
+					body: JSON.stringify({ pct: Number(value) }),
 				})
 					.then((response) => {
 						if (response.ok) {
 							console.log('Color temperature set to:', value);
+							setConnectionStatus(true);
 						} else {
 							console.error('Failed to set color temperature');
+							setConnectionStatus(false);
 						}
 					})
 					.catch((error) => {
 						console.error('Error setting color temperature:', error);
+						setConnectionStatus(false);
 					});
 			}
+
+			// Fired continuously while dragging — UI only, no network.
+			function onTempInput(value) {
+				currentColorTemperature = Number(value);
+				updateTempFill();
+			}
+
+			// Fired once when the drag / keyboard change is committed — sends once.
+			function onTempCommit(value) {
+				currentColorTemperature = Number(value);
+				sendColorTemperature(currentColorTemperature);
+			}
+
+			// Make the power toggle draggable (in addition to tap / keyboard).
+			// A short press acts as a tap-toggle; a drag past the halfway point
+			// commits the new state, otherwise it snaps back.
+			(function initPowerToggleDrag() {
+				const toggle = document.getElementById('powerToggle');
+				const knob = toggle.querySelector('.power-toggle-knob');
+
+				let dragging = false;
+				let moved = false;
+				let startX = 0;
+				let maxTravel = 0;
+
+				// Furthest the knob can slide: inner width minus the knob width.
+				function travel() {
+					const pad = parseFloat(getComputedStyle(toggle).paddingLeft) || 0;
+					return toggle.clientWidth - pad * 2 - knob.offsetWidth;
+				}
+
+				function clampedX(clientX) {
+					const base = isPowerOn ? maxTravel : 0;
+					return Math.max(0, Math.min(maxTravel, base + (clientX - startX)));
+				}
+
+				toggle.addEventListener('pointerdown', (e) => {
+					if (powerBusy) return;
+					dragging = true;
+					moved = false;
+					startX = e.clientX;
+					maxTravel = travel();
+					toggle.classList.add('dragging');
+					toggle.setPointerCapture(e.pointerId);
+				});
+
+				toggle.addEventListener('pointermove', (e) => {
+					if (!dragging) return;
+					if (Math.abs(e.clientX - startX) > 4) moved = true;
+					knob.style.transform = `translateX(${clampedX(e.clientX)}px)`;
+				});
+
+				function endDrag(e) {
+					if (!dragging) return;
+					dragging = false;
+					toggle.classList.remove('dragging');
+					knob.style.transform = ''; // hand positioning back to CSS
+
+					if (!moved) {
+						togglePower(); // treated as a tap
+						return;
+					}
+
+					const wantOn = clampedX(e.clientX) > maxTravel / 2;
+					if (wantOn !== isPowerOn) {
+						togglePower(); // commit + send + rollback-on-failure
+					} else {
+						updatePowerToggle(); // snap back to current state
+					}
+				}
+
+				toggle.addEventListener('pointerup', endDrag);
+				toggle.addEventListener('pointercancel', endDrag);
+
+				// Keyboard: Space / Enter toggles (replaces the old onclick).
+				toggle.addEventListener('keydown', (e) => {
+					if (e.key === ' ' || e.key === 'Enter') {
+						e.preventDefault();
+						togglePower();
+					}
+				});
+			})();
 
 			// Load state on page load
 			window.addEventListener('DOMContentLoaded', () => {

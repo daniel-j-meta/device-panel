@@ -1,0 +1,19 @@
+services:
+  device-panel:
+    build: .
+    ports:
+      - "8787:8787"
+    environment:
+      # Pass your real Govee key here (or via a .env file next to this compose
+      # file). Leave unset to fall back to the placeholder in wrangler.jsonc.
+      - GOVEE_API_KEY=${GOVEE_API_KEY:-}
+    # Live-reload: mount the source that changes so edits show up without a
+    # rebuild. `wrangler dev` watches src/ and reloads the worker; public/
+    # assets are read from disk per request, so they refresh instantly.
+    # node_modules stays baked in the image (not mounted), so host and
+    # container deps never clash.
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./wrangler.jsonc:/app/wrangler.jsonc
+    restart: unless-stopped
