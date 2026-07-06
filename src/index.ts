@@ -16,6 +16,50 @@ const err = (e: unknown, status = 500) =>
 		{ status, headers: { 'content-type': 'application/json' } },
 	);
 
+// --- Reconciliation ---------------------------------------------------------
+// The "last entered state" lives on the frontend and is passed in per request,
+// so the backend stays stateless. Given a desired snapshot, re-apply any
+// observable field that has drifted and report whether the room is synchronized.
+type DesiredState = {
+	on?: boolean;
+	brightness?: number;
+	colorTemperaturePct?: number;
+};
+
+async function reconcileLivingRoom(desired: DesiredState) {
+	const observed = await living_room.getLightState();
+	const corrected: string[] = [];
+
+	if (desired.on !== undefined && observed.on !== desired.on) corrected.push('on');
+
+	// Only reconcile brightness/temperature when the room should be on —
+	// otherwise a correction could switch an off light back on.
+	const checkLevels = desired.on !== false;
+	if (checkLevels && desired.brightness !== undefined && observed.brightness !== desired.brightness) {
+		corrected.push('brightness');
+	}
+	if (
+		checkLevels &&
+		desired.colorTemperaturePct !== undefined &&
+		Math.abs(observed.colorTemperaturePct - desired.colorTemperaturePct) > 1
+	) {
+		corrected.push('colorTemperaturePct');
+	}
+
+	// Force drifted devices back to the desired state (Govee control is idempotent).
+	if (corrected.includes('on')) {
+		desired.on ? await living_room.on() : await living_room.off();
+	}
+	if (corrected.includes('brightness')) {
+		await living_room.setBrightness(desired.brightness as Brightness);
+	}
+	if (corrected.includes('colorTemperaturePct')) {
+		await living_room.setColorTemperature(desired.colorTemperaturePct as number);
+	}
+
+	return { observed, desired, synchronized: corrected.length === 0, corrected };
+}
+
 router.get('/turnOnLivingRoom', async () => {
 	try {
 		await living_room.on();
@@ -87,6 +131,26 @@ router.get('/getLivingRoomState', async () => {
 		return {
 			status: 200,
 			body: living_room_state,
+		};
+	} catch (e) {
+		return err(e);
+	}
+});
+
+// Reconcile pass: given the frontend's desired snapshot, query the room, force
+// any drifted device back to that state, and report whether it is now
+// synchronized. The frontend posts its state on a backoff after each action and
+// stops once synchronized.
+router.post('/syncLivingRoom', async (request) => {
+	try {
+		const desired = (await request.json()) as DesiredState;
+		const result = await reconcileLivingRoom(desired);
+		return {
+			status: 200,
+			body: result.observed,
+			synchronized: result.synchronized,
+			corrected: result.corrected,
+			desired: result.desired,
 		};
 	} catch (e) {
 		return err(e);

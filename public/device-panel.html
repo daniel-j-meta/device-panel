@@ -149,9 +149,9 @@
 			.power-container {
 				display: flex;
 				flex-direction: column;
-				align-items: center;
-				justify-content: center;
+				align-items: stretch;
 				gap: var(--gap);
+				min-height: 0;
 			}
 
 			.power-label {
@@ -160,12 +160,14 @@
 				text-transform: uppercase;
 				letter-spacing: 0.1em;
 				opacity: 0.7;
+				text-align: center;
 			}
 
 			.power-toggle {
-				--toggle-pad: 0.4rem;
-				width: min(100%, 26rem);
-				height: clamp(3rem, 9vmin, 5.5rem);
+				--toggle-pad: clamp(0.4rem, 1vmin, 0.9rem);
+				width: 100%;
+				flex: 1;
+				min-height: clamp(3rem, 9vmin, 5.5rem);
 				background: rgba(255, 255, 255, 0.1);
 				border-radius: 999px;
 				border: 1px solid var(--border-col);
@@ -304,30 +306,33 @@
 				gap: clamp(0.4rem, 1vmin, 0.75rem);
 			}
 
-			.slider {
+			.slider-wrap {
 				--pct: 50%;
-				width: 100%;
+				position: relative;
 				flex: 1;
 				min-height: clamp(2.5rem, 4.5vmin, 3.5rem);
 				border-radius: 999px;
-				/* Warm (amber) -> cool (white) spectrum, with everything to the right
-				   of the thumb dimmed (via --pct) so the current level reads as a fill
-				   while the full temperature spectrum stays visible. */
-				background:
-					linear-gradient(
-						to right,
-						rgba(10, 12, 24, 0) 0%,
-						rgba(10, 12, 24, 0) var(--pct),
-						rgba(10, 12, 24, 0.5) var(--pct),
-						rgba(10, 12, 24, 0.5) 100%
-					),
-					linear-gradient(to right, #ff9a56 0%, #ffffff 100%);
+				/* Warm (amber) -> cool (white) temperature spectrum. */
+				background: linear-gradient(to right, #ff9a56 0%, #ffffff 100%);
 				border: 1px solid rgba(255, 255, 255, 0.15);
 				box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
+				touch-action: none;
+			}
+
+			/* The native range fills the bar and handles interaction (click/drag
+			   anywhere), but its thumb is hidden — the visible handle is the
+			   crossbar overlay positioned by --pct. */
+			.slider {
+				position: absolute;
+				inset: 0;
+				width: 100%;
+				height: 100%;
+				margin: 0;
+				background: transparent;
+				border-radius: inherit;
 				outline: none;
 				-webkit-appearance: none;
 				appearance: none;
-				/* none (not manipulation) so a horizontal drag doesn't scroll the page. */
 				touch-action: none;
 				cursor: pointer;
 			}
@@ -335,37 +340,48 @@
 			.slider::-webkit-slider-thumb {
 				-webkit-appearance: none;
 				appearance: none;
-				width: clamp(2.25rem, 5vmin, 3.25rem);
-				height: clamp(2.25rem, 5vmin, 3.25rem);
-				border-radius: 50%;
-				background: #fff;
-				border: 2px solid rgba(0, 0, 0, 0.18);
+				width: 1px;
+				height: 100%;
+				background: transparent;
 				cursor: grab;
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-				transition: transform 0.12s ease, box-shadow 0.12s ease;
-			}
-
-			.slider::-webkit-slider-thumb:active {
-				cursor: grabbing;
-				transform: scale(1.15);
-			}
-
-			.slider:focus-visible::-webkit-slider-thumb {
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 0 0.35rem rgba(255, 255, 255, 0.4);
 			}
 
 			.slider::-moz-range-thumb {
-				width: clamp(2.25rem, 5vmin, 3.25rem);
-				height: clamp(2.25rem, 5vmin, 3.25rem);
-				border-radius: 50%;
-				background: #fff;
+				width: 1px;
+				height: 100%;
+				border: none;
+				background: transparent;
 				cursor: grab;
-				border: 2px solid rgba(0, 0, 0, 0.18);
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 			}
 
-			.slider:focus-visible::-moz-range-thumb {
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 0 0.35rem rgba(255, 255, 255, 0.4);
+			.slider::-moz-range-track {
+				background: transparent;
+			}
+
+			/* Vertical crossbar handle: locked to the bar's full height (top/bottom
+			   pinned), with its thickness derived from that height via aspect-ratio
+			   — so it scales with the temp bar instead of using a fixed px width. */
+			.slider-crossbar {
+				position: absolute;
+				top: 0;
+				bottom: 0;
+				left: var(--pct);
+				aspect-ratio: 1 / 4;
+				transform: translateX(-50%);
+				background: #fff;
+				border: 2px solid rgba(0, 0, 0, 0.18);
+				border-radius: 999px;
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+				pointer-events: none;
+				transition: box-shadow 0.12s ease;
+			}
+
+			.slider:focus-visible ~ .slider-crossbar {
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 0 0.3rem rgba(255, 255, 255, 0.4);
+			}
+
+			.slider:active ~ .slider-crossbar {
+				box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
 			}
 
 			.slider-labels {
@@ -486,17 +502,20 @@
 			<div class="row-3">
 				<div class="section-title">Color Temperature</div>
 				<div class="slider-container">
-					<input
-						type="range"
-						min="0"
-						max="100"
-						value="50"
-						class="slider"
-						id="tempSlider"
-						oninput="onTempInput(this.value)"
-						onchange="onTempCommit(this.value)"
-						aria-label="Color Temperature"
-					/>
+					<div class="slider-wrap" id="tempWrap">
+						<input
+							type="range"
+							min="0"
+							max="100"
+							value="50"
+							class="slider"
+							id="tempSlider"
+							oninput="onTempInput(this.value)"
+							onchange="onTempCommit(this.value)"
+							aria-label="Color Temperature"
+						/>
+						<div class="slider-crossbar"></div>
+					</div>
 					<div class="slider-labels">
 						<span class="label-end">Warm</span>
 						<span class="label-end">Cool</span>
@@ -558,9 +577,23 @@
 				setTimeout(() => el.classList.remove('error-flash'), 600);
 			}
 
+			// Apply a server-reported state to local state + UI. Only applies values
+			// the server actually returned, so a partial/error payload can't poison
+			// local state with undefined/NaN.
+			function applyServerState(s) {
+				s = s || {};
+				if (typeof s.on === 'boolean') isPowerOn = s.on;
+				if (Number.isFinite(Number(s.brightness))) currentBrightness = Number(s.brightness);
+				if (Number.isFinite(Number(s.colorTemperaturePct))) {
+					currentColorTemperature = Number(s.colorTemperaturePct);
+				}
+				updatePowerToggle();
+				updateBrightnessButtons();
+				updateColorTemperatureSlider();
+			}
+
 			// Get initial state from server
 			function getLivingRoomState() {
-				// TODO: Replace ${BASE_URL} with your actual base URL
 				const url = `${BASE_URL}/getLivingRoomState`;
 
 				fetch(url, {
@@ -571,24 +604,74 @@
 						return response.json();
 					})
 					.then((data) => {
-						// Only apply values the server actually returned, so a partial or
-						// error payload can't poison local state with undefined/NaN.
-						const s = (data && data.body) || {};
-						if (typeof s.on === 'boolean') isPowerOn = s.on;
-						if (Number.isFinite(Number(s.brightness))) currentBrightness = Number(s.brightness);
-						if (Number.isFinite(Number(s.colorTemperaturePct))) {
-							currentColorTemperature = Number(s.colorTemperaturePct);
-						}
-						// Update UI
-						updatePowerToggle();
-						updateBrightnessButtons();
-						updateColorTemperatureSlider();
+						applyServerState(data && data.body);
 						setConnectionStatus(true);
 					})
 					.catch((error) => {
 						console.error('Error getting living room state:', error);
 						setConnectionStatus(false);
 					});
+			}
+
+			// --- Reconciliation polling ------------------------------------------
+			// After every action, poll /syncLivingRoom on a backoff. Each poll the
+			// backend forces drifted devices back to the last-entered state and
+			// reports whether the room is synchronized. The chain:
+			//   - restarts from the beginning on every new action, and
+			//   - early-exits as soon as the backend reports synchronized.
+			const RECONCILE_DELAYS = [3000, 6000, 10000, 15000];
+			let reconcileTimer = null;
+
+			function cancelReconcile() {
+				if (reconcileTimer !== null) {
+					clearTimeout(reconcileTimer);
+					reconcileTimer = null;
+				}
+			}
+
+			// One reconcile poll. Sends the frontend's current (last-entered) state as
+			// the desired snapshot; the backend forces drifted devices to match it.
+			// Returns true once the room is synchronized. Deliberately does NOT apply
+			// the observed state back to the UI — the frontend's state is the source
+			// of truth here, so a poll never overwrites what the user last entered.
+			function pollSync() {
+				const desired = {
+					on: isPowerOn,
+					brightness: currentBrightness,
+					colorTemperaturePct: currentColorTemperature,
+				};
+				return fetch(`${BASE_URL}/syncLivingRoom`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(desired),
+				})
+					.then((response) => {
+						setConnectionStatus(response.ok);
+						if (!response.ok) return false;
+						return response.json().then((data) => !!(data && data.synchronized));
+					})
+					.catch((error) => {
+						console.error('Error polling sync:', error);
+						setConnectionStatus(false);
+						return false;
+					});
+			}
+
+			function scheduleReconcileStep(i) {
+				if (i >= RECONCILE_DELAYS.length) return;
+				reconcileTimer = setTimeout(() => {
+					reconcileTimer = null;
+					pollSync().then((synchronized) => {
+						if (synchronized) return; // early exit — room is in sync
+						scheduleReconcileStep(i + 1);
+					});
+				}, RECONCILE_DELAYS[i]);
+			}
+
+			// Called after every action; a new action resets the chain.
+			function startReconcile() {
+				cancelReconcile();
+				scheduleReconcileStep(0);
 			}
 
 			// Update power toggle UI
@@ -613,11 +696,11 @@
 				updateTempFill();
 			}
 
-			// Move the "fill" boundary (dimmed portion) to match the current value.
+			// Move the fill boundary + crossbar to match the current value.
 			function updateTempFill() {
-				const slider = document.getElementById('tempSlider');
+				const wrap = document.getElementById('tempWrap');
 				const pct = Number(currentColorTemperature);
-				slider.style.setProperty('--pct', `${Number.isFinite(pct) ? pct : 50}%`);
+				if (wrap) wrap.style.setProperty('--pct', `${Number.isFinite(pct) ? pct : 50}%`);
 			}
 
 			// Power toggle: optimistic flip, guarded against overlapping requests,
@@ -648,6 +731,8 @@
 						flashError(toggle);
 					}
 				});
+
+				startReconcile();
 			}
 
 			function setColor(color) {
@@ -664,13 +749,18 @@
 					.then((response) => {
 						if (response.ok) {
 							console.log('Color set to:', color);
+							setConnectionStatus(true);
 						} else {
 							console.error('Failed to set color');
+							setConnectionStatus(false);
 						}
 					})
 					.catch((error) => {
 						console.error('Error setting color:', error);
+						setConnectionStatus(false);
 					});
+
+				startReconcile();
 			}
 
 			// Brightness: optimistic highlight, rolls back if the command fails.
@@ -688,6 +778,8 @@
 						flashError(document.querySelector(`[data-brightness="${value}"]`));
 					}
 				});
+
+				startReconcile();
 			}
 
 			// --- Color temperature: instant local feedback, commit-only network ---
@@ -729,6 +821,7 @@
 			function onTempCommit(value) {
 				currentColorTemperature = Number(value);
 				sendColorTemperature(currentColorTemperature);
+				startReconcile();
 			}
 
 			// Make the power toggle draggable (in addition to tap / keyboard).
