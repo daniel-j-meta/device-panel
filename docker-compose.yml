@@ -7,6 +7,8 @@ services:
       # Pass your real Govee key here (or via a .env file next to this compose
       # file). Leave unset to fall back to the placeholder in wrangler.jsonc.
       - GOVEE_API_KEY=${GOVEE_API_KEY:-}
+      # Shared login password for the panel (checked against PANEL_PASSWORD).
+      - PANEL_PASSWORD=${PANEL_PASSWORD:-}
     # Live-reload: mount the source that changes so edits show up without a
     # rebuild. `wrangler dev` watches src/ and reloads the worker; public/
     # assets are read from disk per request, so they refresh instantly.

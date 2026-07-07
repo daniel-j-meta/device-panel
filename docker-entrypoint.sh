@@ -4,8 +4,12 @@ set -e
 # wrangler.jsonc ships GOVEE_API_KEY as "REMOVED". If a real key is provided via
 # the environment, write it to .dev.vars so wrangler's local runtime picks it up
 # (this overrides the value in wrangler.jsonc for `wrangler dev`).
+: > /app/.dev.vars
 if [ -n "$GOVEE_API_KEY" ]; then
-  echo "GOVEE_API_KEY=$GOVEE_API_KEY" > /app/.dev.vars
+  echo "GOVEE_API_KEY=$GOVEE_API_KEY" >> /app/.dev.vars
+fi
+if [ -n "$PANEL_PASSWORD" ]; then
+  echo "PANEL_PASSWORD=$PANEL_PASSWORD" >> /app/.dev.vars
 fi
 
 # Regenerate the Cloudflare binding types before starting (matches the

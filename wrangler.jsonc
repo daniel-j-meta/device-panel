@@ -11,12 +11,17 @@
     "enabled": true
   },
   "compatibility_flags": ["nodejs_compat"],
-  "vars": {
-    "GOVEE_API_KEY": "REMOVED"
-  },
+  // GOVEE_API_KEY and PANEL_PASSWORD are sensitive, so they are NOT committed
+  // here. They're provided as:
+  //   - local dev: .dev.vars (written by docker-entrypoint.sh from env)
+  //   - production: Worker secrets (uploaded by the deploy GitHub Action)
+  //   - tests: miniflare bindings in vitest.config.mts
   "assets": {
     "directory": "./public/",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    // Run the Worker (and its auth gate) before serving any static asset, so
+    // no route can bypass the login check.
+    "run_worker_first": true
   }
   /**
    * Smart Placement

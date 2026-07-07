@@ -1,11 +1,134 @@
 import { AutoRouter } from 'itty-router';
+import { env } from 'cloudflare:workers';
 import { LivingRoom } from './groups/LivingRoom';
 import { Brightness } from './models/Light';
 import { ColorStr } from './models/GoveeInterface';
 
 const PORT = 80;
-const router = AutoRouter();
+
+// --- Auth -------------------------------------------------------------------
+// A single shared password, checked against the PANEL_PASSWORD env var (same
+// pattern as GOVEE_API_KEY). It's stored in a cookie and must accompany every
+// request; unauthenticated requests are redirected to /login.
+const AUTH_COOKIE = 'panel_auth';
+
+function getCookie(request: Request, name: string): string | null {
+	const header = request.headers.get('Cookie') || '';
+	const match = header.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+	return match ? decodeURIComponent(match[1]) : null;
+}
+
+function isAuthed(request: Request): boolean {
+	const pw = env.PANEL_PASSWORD;
+	return typeof pw === 'string' && pw.length > 0 && getCookie(request, AUTH_COOKIE) === pw;
+}
+
+const loginPage = (error = false) => `<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<title>Sign in</title>
+		<style>
+			* { margin: 0; padding: 0; box-sizing: border-box; }
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+				background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+				color: #fff;
+				min-height: 100dvh;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				padding: 1.5rem;
+			}
+			form {
+				width: min(100%, 22rem);
+				display: flex;
+				flex-direction: column;
+				gap: 1rem;
+				background: rgba(255, 255, 255, 0.05);
+				border: 1px solid rgba(255, 255, 255, 0.15);
+				border-radius: 1rem;
+				padding: 2rem;
+			}
+			h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: 0.02em; }
+			input {
+				width: 100%;
+				font-size: 1rem;
+				padding: 0.85rem 1rem;
+				border-radius: 0.6rem;
+				border: 1px solid rgba(255, 255, 255, 0.2);
+				background: rgba(255, 255, 255, 0.08);
+				color: #fff;
+				outline: none;
+			}
+			input:focus { border-color: rgba(255, 180, 76, 0.8); }
+			button {
+				font-size: 1rem;
+				font-weight: 600;
+				padding: 0.85rem 1rem;
+				border-radius: 0.6rem;
+				border: none;
+				background: #ffb44c;
+				color: #1a1a2e;
+				cursor: pointer;
+			}
+			button:active { transform: scale(0.98); }
+			.error { color: #ff8585; font-size: 0.85rem; min-height: 1rem; }
+		</style>
+	</head>
+	<body>
+		<form method="POST" action="/login">
+			<h1>Device Panel</h1>
+			<input
+				type="password"
+				name="password"
+				placeholder="Password"
+				autofocus
+				autocomplete="current-password"
+				aria-label="Password"
+			/>
+			<div class="error">${error ? 'Incorrect password' : ''}</div>
+			<button type="submit">Sign in</button>
+		</form>
+	</body>
+</html>`;
+
+// Gate every route except /login behind the auth cookie.
+const requireAuth = (request: Request) => {
+	const url = new URL(request.url);
+	if (url.pathname === '/login') return; // allow the login page + form post
+	if (isAuthed(request)) return; // authenticated — continue to the route
+	return Response.redirect(new URL('/login', request.url).toString(), 302);
+};
+
+const router = AutoRouter({ before: [requireAuth] });
 const living_room = new LivingRoom();
+
+router.get('/login', () => {
+	const showError = false;
+	return new Response(loginPage(showError), {
+		headers: { 'content-type': 'text/html; charset=utf-8' },
+	});
+});
+
+router.post('/login', async (request) => {
+	const form = await request.formData();
+	const password = String(form.get('password') || '');
+	if (typeof env.PANEL_PASSWORD === 'string' && password === env.PANEL_PASSWORD) {
+		const headers = new Headers({ Location: '/home' });
+		// 30-day cookie; sent with every same-origin request (incl. fetch).
+		headers.append(
+			'Set-Cookie',
+			`${AUTH_COOKIE}=${encodeURIComponent(password)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
+		);
+		return new Response(null, { status: 302, headers });
+	}
+	return new Response(loginPage(true), {
+		status: 401,
+		headers: { 'content-type': 'text/html; charset=utf-8' },
+	});
+});
 
 // Return a real HTTP error status so the UI can detect a failed command and
 // roll back its optimistic update. (AutoRouter otherwise serializes a returned
@@ -173,10 +296,8 @@ router.get('/', () => ({
 	body: 'Actions: /turnOnLivingRoom /turnOffLivingRoom /setLivingRoomBrightness25 /setLivingRoomBrightness50 /setLivingRoomBrightness75 /setLivingRoomBrightness100 /setLivingRoomColorTemp /getLivingRoomState',
 }));
 
-router.get('/home', (request, env) => {
-  return env.ASSETS.fetch(
-    new Request('http://assets/device-panel.html')
-  )
-})
+router.get('/home', () => {
+	return env.ASSETS.fetch(new Request('http://assets/device-panel.html'));
+});
 
 export default { ...router };
