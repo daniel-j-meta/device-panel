@@ -74,13 +74,23 @@
 				box-shadow: 0 0 8px rgba(255, 85, 85, 0.85);
 			}
 
-			/* Row 1: Colors & Power */
+			/* Row 1: Colors (power toggle now lives at the very top of the panel) */
 			.row-1 {
 				flex: 1 1 0;
 				display: grid;
-				grid-template-columns: 1fr 1fr;
+				grid-template-columns: 1fr;
 				gap: var(--gap);
 				min-height: 0;
+			}
+
+			/* Power toggle pinned to the very top of the panel — compact, doesn't
+			   stretch to fill like the rows below it. */
+			.power-container {
+				flex: 0 0 auto;
+			}
+
+			.power-container .power-toggle {
+				flex: 0 0 auto;
 			}
 
 			.colors-container {
@@ -152,15 +162,6 @@
 				align-items: stretch;
 				gap: var(--gap);
 				min-height: 0;
-			}
-
-			.power-label {
-				font-size: clamp(0.7rem, 1.6vmin, 1rem);
-				font-weight: 600;
-				text-transform: uppercase;
-				letter-spacing: 0.1em;
-				opacity: 0.7;
-				text-align: center;
 			}
 
 			.power-toggle {
@@ -311,11 +312,14 @@
 				position: relative;
 				flex: 1;
 				min-height: clamp(2.5rem, 4.5vmin, 3.5rem);
-				border-radius: 999px;
+				/* Squared-off (not pill): sharper corners, still softly rounded. */
+				border-radius: var(--radius);
 				/* Warm (amber) -> cool (white) temperature spectrum. */
 				background: linear-gradient(to right, #ff9a56 0%, #ffffff 100%);
 				border: 1px solid rgba(255, 255, 255, 0.15);
 				box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
+				/* Clip the handle to the bar so it can never spill past the edges. */
+				overflow: hidden;
 				touch-action: none;
 			}
 
@@ -359,18 +363,21 @@
 			}
 
 			/* Vertical crossbar handle: locked to the bar's full height (top/bottom
-			   pinned), with its thickness derived from that height via aspect-ratio
-			   — so it scales with the temp bar instead of using a fixed px width. */
+			   pinned) with a fixed thickness. Its centre is clamped to
+			   [half-width, 100% - half-width] so the whole handle always stays
+			   inside the bar — it never spills past the left/right edge. */
 			.slider-crossbar {
+				--thumb-w: clamp(0.75rem, 2.5vmin, 1.25rem);
 				position: absolute;
 				top: 0;
 				bottom: 0;
-				left: var(--pct);
-				aspect-ratio: 1 / 4;
+				width: var(--thumb-w);
+				left: clamp(calc(var(--thumb-w) / 2), var(--pct), calc(100% - var(--thumb-w) / 2));
 				transform: translateX(-50%);
 				background: #fff;
 				border: 2px solid rgba(0, 0, 0, 0.18);
-				border-radius: 999px;
+				/* Sharper corners than the old pill — squared but not hard 90°. */
+				border-radius: clamp(0.2rem, 0.6vmin, 0.4rem);
 				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 				pointer-events: none;
 				transition: box-shadow 0.12s ease;
@@ -393,6 +400,13 @@
 
 			.slider-labels .label-end {
 				opacity: 0.6;
+			}
+
+			/* Centre readout: the signed % (0% mid, -100% warm, +100% cool). */
+			.slider-labels .label-value {
+				font-variant-numeric: tabular-nums;
+				font-weight: 600;
+				opacity: 0.95;
 			}
 
 			/* Narrow screens: stack colors above power, collapse brightness to 2x2. */
@@ -418,7 +432,21 @@
 	<body>
 		<div class="status-dot" id="statusDot" title="Not connected" aria-label="Not connected"></div>
 		<div class="panel">
-			<!-- Row 1: Colors and Power -->
+			<!-- Power toggle: pinned to the very top of the page -->
+			<div class="power-container">
+				<div
+					class="power-toggle"
+					id="powerToggle"
+					role="switch"
+					aria-checked="false"
+					aria-label="Power"
+					tabindex="0"
+				>
+					<div class="power-toggle-knob"></div>
+				</div>
+			</div>
+
+			<!-- Row 1: Colors -->
 			<div class="row-1">
 				<div class="colors-container">
 					<div class="section-title">Color Picker</div>
@@ -439,19 +467,6 @@
 							onclick="setColor('custom2')"
 							aria-label="Custom 2"
 						></button>
-					</div>
-				</div>
-				<div class="power-container">
-					<div class="power-label">ON/OFF</div>
-					<div
-						class="power-toggle"
-						id="powerToggle"
-						role="switch"
-						aria-checked="false"
-						aria-label="Power"
-						tabindex="0"
-					>
-						<div class="power-toggle-knob"></div>
 					</div>
 				</div>
 			</div>
@@ -517,8 +532,9 @@
 						<div class="slider-crossbar"></div>
 					</div>
 					<div class="slider-labels">
-						<span class="label-end">Warm</span>
-						<span class="label-end">Cool</span>
+						<span class="label-end">Warm &minus;100%</span>
+						<span class="label-value" id="tempValue">0%</span>
+						<span class="label-end">Cool +100%</span>
 					</div>
 				</div>
 			</div>
@@ -696,11 +712,22 @@
 				updateTempFill();
 			}
 
-			// Move the fill boundary + crossbar to match the current value.
+			// Map the raw 0..100 slider position to a signed display percentage:
+			// 0 -> -100%, 50 -> 0%, 100 -> +100%. Position/network still use 0..100.
+			function formatTempPct(raw) {
+				const n = Number.isFinite(Number(raw)) ? Number(raw) : 50;
+				const signed = Math.round(n * 2 - 100);
+				return `${signed > 0 ? '+' : ''}${signed}%`;
+			}
+
+			// Move the fill boundary + crossbar to match the current value, and
+			// refresh the centre readout.
 			function updateTempFill() {
 				const wrap = document.getElementById('tempWrap');
 				const pct = Number(currentColorTemperature);
 				if (wrap) wrap.style.setProperty('--pct', `${Number.isFinite(pct) ? pct : 50}%`);
+				const readout = document.getElementById('tempValue');
+				if (readout) readout.textContent = formatTempPct(currentColorTemperature);
 			}
 
 			// Power toggle: optimistic flip, guarded against overlapping requests,
