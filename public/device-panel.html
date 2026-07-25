@@ -546,6 +546,12 @@
 			let isPowerOn = false;
 			let currentBrightness = 50;
 			let currentColorTemperature = 50;
+			let desiredColorMode = 'temperature';
+			let desiredRevision = 0;
+			const desiredClientId =
+				window.crypto && window.crypto.randomUUID
+					? window.crypto.randomUUID()
+					: `${Date.now()}-${Math.random()}`;
 
 			// Connection status dot: reflects whether the last command reached the
 			// server (green) or failed (red).
@@ -560,10 +566,14 @@
 
 			// Reusable GET request method. Resolves to true on success, false on a
 			// non-OK response or network error, so callers can roll back the UI.
-			function makeGetRequest(route) {
-				const url = `${BASE_URL}${route}`;
+			function makeGetRequest(route, revision) {
+				const url = new URL(`${BASE_URL}${route}`);
+				url.searchParams.set('clientId', desiredClientId);
+				if (Number.isFinite(Number(revision))) {
+					url.searchParams.set('revision', String(revision));
+				}
 
-				return fetch(url, {
+				return fetch(url.toString(), {
 					method: 'GET',
 				})
 					.then((response) => {
@@ -637,6 +647,12 @@
 			//   - early-exits as soon as the backend reports synchronized.
 			const RECONCILE_DELAYS = [3000, 6000, 10000, 15000];
 			let reconcileTimer = null;
+			let reconcileRunId = 0;
+
+			function nextDesiredRevision() {
+				desiredRevision += 1;
+				return desiredRevision;
+			}
 
 			function cancelReconcile() {
 				if (reconcileTimer !== null) {
@@ -652,10 +668,14 @@
 			// of truth here, so a poll never overwrites what the user last entered.
 			function pollSync() {
 				const desired = {
+					clientId: desiredClientId,
+					revision: desiredRevision,
 					on: isPowerOn,
 					brightness: currentBrightness,
-					colorTemperaturePct: currentColorTemperature,
 				};
+				if (desiredColorMode === 'temperature') {
+					desired.colorTemperaturePct = currentColorTemperature;
+				}
 				return fetch(`${BASE_URL}/syncLivingRoom`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -673,13 +693,14 @@
 					});
 			}
 
-			function scheduleReconcileStep(i) {
-				if (i >= RECONCILE_DELAYS.length) return;
+			function scheduleReconcileStep(runId, i) {
+				if (runId !== reconcileRunId || i >= RECONCILE_DELAYS.length) return;
 				reconcileTimer = setTimeout(() => {
+					if (runId !== reconcileRunId) return;
 					reconcileTimer = null;
 					pollSync().then((synchronized) => {
-						if (synchronized) return; // early exit — room is in sync
-						scheduleReconcileStep(i + 1);
+						if (runId !== reconcileRunId || synchronized) return; // early exit — room is in sync
+						scheduleReconcileStep(runId, i + 1);
 					});
 				}, RECONCILE_DELAYS[i]);
 			}
@@ -687,7 +708,8 @@
 			// Called after every action; a new action resets the chain.
 			function startReconcile() {
 				cancelReconcile();
-				scheduleReconcileStep(0);
+				const runId = ++reconcileRunId;
+				scheduleReconcileStep(runId, 0);
 			}
 
 			// Update power toggle UI
@@ -748,7 +770,8 @@
 				toggle.classList.add('busy');
 
 				const route = isPowerOn ? '/turnOnLivingRoom' : '/turnOffLivingRoom';
-				makeGetRequest(route).then((ok) => {
+				const revision = nextDesiredRevision();
+				makeGetRequest(route, revision).then((ok) => {
 					powerBusy = false;
 					toggle.classList.remove('busy');
 					if (!ok) {
@@ -763,6 +786,8 @@
 			}
 
 			function setColor(color) {
+				desiredColorMode = 'color';
+				const revision = nextDesiredRevision();
 				// TODO: Replace ${BASE_URL} with your actual base URL
 				const url = `${BASE_URL}/setLivingRoomColor`;
 
@@ -771,7 +796,7 @@
 					headers: {
 						'Content-Type': 'application/json',
 					},
-					body: JSON.stringify({ color: color }),
+					body: JSON.stringify({ color: color, revision: revision, clientId: desiredClientId }),
 				})
 					.then((response) => {
 						if (response.ok) {
@@ -797,8 +822,9 @@
 				// Optimistic: highlight the tapped button now.
 				currentBrightness = value;
 				updateBrightnessButtons();
+				const revision = nextDesiredRevision();
 
-				makeGetRequest(`/setLivingRoomBrightness${value}`).then((ok) => {
+				makeGetRequest(`/setLivingRoomBrightness${value}`, revision).then((ok) => {
 					if (!ok) {
 						currentBrightness = previous;
 						updateBrightnessButtons();
@@ -813,7 +839,7 @@
 			// Dragging updates the UI live but sends NOTHING; the single POST fires
 			// only when the drag/keyboard change is committed (pointer up / key up),
 			// so the worker and Govee API see exactly one request per adjustment.
-			function sendColorTemperature(value) {
+			function sendColorTemperature(value, revision) {
 				const url = `${BASE_URL}/setLivingRoomColorTemp`;
 
 				fetch(url, {
@@ -821,7 +847,7 @@
 					headers: {
 						'Content-Type': 'application/json',
 					},
-					body: JSON.stringify({ pct: Number(value) }),
+					body: JSON.stringify({ pct: Number(value), revision: revision, clientId: desiredClientId }),
 				})
 					.then((response) => {
 						if (response.ok) {
@@ -840,14 +866,17 @@
 
 			// Fired continuously while dragging — UI only, no network.
 			function onTempInput(value) {
+				desiredColorMode = 'temperature';
 				currentColorTemperature = Number(value);
 				updateTempFill();
 			}
 
 			// Fired once when the drag / keyboard change is committed — sends once.
 			function onTempCommit(value) {
+				desiredColorMode = 'temperature';
 				currentColorTemperature = Number(value);
-				sendColorTemperature(currentColorTemperature);
+				const revision = nextDesiredRevision();
+				sendColorTemperature(currentColorTemperature, revision);
 				startReconcile();
 			}
 

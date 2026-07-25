@@ -140,16 +140,54 @@ const err = (e: unknown, status = 500) =>
 	);
 
 // --- Reconciliation ---------------------------------------------------------
-// The "last entered state" lives on the frontend and is passed in per request,
-// so the backend stays stateless. Given a desired snapshot, re-apply any
-// observable field that has drifted and report whether the room is synchronized.
+// The "last entered state" lives on the frontend and is passed in per request.
+// The backend only tracks per-client revisions so an older sync cannot apply
+// corrections after a newer command has arrived.
 type DesiredState = {
+	clientId?: string;
+	revision?: number;
 	on?: boolean;
 	brightness?: number;
 	colorTemperaturePct?: number;
 };
 
+const DEFAULT_CLIENT_ID = 'default';
+const latestLivingRoomRevisions = new Map<string, number>();
+
+function normalizeClientId(value: unknown): string {
+	return typeof value === 'string' && value.length > 0 ? value : DEFAULT_CLIENT_ID;
+}
+
+function normalizeRevision(value: unknown): number | undefined {
+	const revision = Number(value);
+	return Number.isSafeInteger(revision) && revision >= 0 ? revision : undefined;
+}
+
+function noteLivingRoomRevision(clientIdValue: unknown, revisionValue: unknown) {
+	const clientId = normalizeClientId(clientIdValue);
+	const revision = normalizeRevision(revisionValue);
+	const latestRevision = latestLivingRoomRevisions.get(clientId) ?? 0;
+	if (revision !== undefined && revision > latestRevision) {
+		latestLivingRoomRevisions.set(clientId, revision);
+	}
+	return { clientId, revision };
+}
+
+function getRequestRevision(request: Request) {
+	const url = new URL(request.url);
+	return noteLivingRoomRevision(url.searchParams.get('clientId'), url.searchParams.get('revision'));
+}
+
+function isStaleLivingRoomRevision(clientId: string, revision: number | undefined) {
+	return revision !== undefined && revision < (latestLivingRoomRevisions.get(clientId) ?? 0);
+}
+
 async function reconcileLivingRoom(desired: DesiredState) {
+	const { clientId, revision } = noteLivingRoomRevision(desired.clientId, desired.revision);
+	if (isStaleLivingRoomRevision(clientId, revision)) {
+		return { observed: null, desired, synchronized: false, corrected: [], stale: true };
+	}
+
 	const observed = await living_room.getLightState();
 	const corrected: string[] = [];
 
@@ -169,6 +207,10 @@ async function reconcileLivingRoom(desired: DesiredState) {
 		corrected.push('colorTemperaturePct');
 	}
 
+	if (corrected.length > 0 && isStaleLivingRoomRevision(clientId, revision)) {
+		return { observed, desired, synchronized: false, corrected: [], stale: true };
+	}
+
 	// Force drifted devices back to the desired state (Govee control is idempotent).
 	if (corrected.includes('on')) {
 		desired.on ? await living_room.on() : await living_room.off();
@@ -183,8 +225,9 @@ async function reconcileLivingRoom(desired: DesiredState) {
 	return { observed, desired, synchronized: corrected.length === 0, corrected };
 }
 
-router.get('/turnOnLivingRoom', async () => {
+router.get('/turnOnLivingRoom', async (request: Request) => {
 	try {
+		getRequestRevision(request);
 		await living_room.on();
 		return { status: 200, body: 'Turned Living Room On' };
 	} catch (e) {
@@ -192,8 +235,9 @@ router.get('/turnOnLivingRoom', async () => {
 	}
 });
 
-router.get('/turnOffLivingRoom', async () => {
+router.get('/turnOffLivingRoom', async (request: Request) => {
 	try {
+		getRequestRevision(request);
 		await living_room.off();
 		return { status: 200, body: 'Turned Living Room Off' };
 	} catch (e) {
@@ -201,8 +245,9 @@ router.get('/turnOffLivingRoom', async () => {
 	}
 });
 
-router.get('/setLivingRoomBrightness10', async () => {
+router.get('/setLivingRoomBrightness10', async (request: Request) => {
 	try {
+		getRequestRevision(request);
 		await living_room.setBrightness(Brightness.B10);
 		return { status: 200, body: 'Set Brightness 25' };
 	} catch (e) {
@@ -210,8 +255,9 @@ router.get('/setLivingRoomBrightness10', async () => {
 	}
 });
 
-router.get('/setLivingRoomBrightness50', async () => {
+router.get('/setLivingRoomBrightness50', async (request: Request) => {
 	try {
+		getRequestRevision(request);
 		await living_room.setBrightness(Brightness.B50);
 		return { status: 200, body: 'Set Brightness 50' };
 	} catch (e) {
@@ -219,8 +265,9 @@ router.get('/setLivingRoomBrightness50', async () => {
 	}
 });
 
-router.get('/setLivingRoomBrightness75', async () => {
+router.get('/setLivingRoomBrightness75', async (request: Request) => {
 	try {
+		getRequestRevision(request);
 		await living_room.setBrightness(Brightness.B75);
 		return { status: 200, body: 'Set Brightness 75' };
 	} catch (e) {
@@ -228,8 +275,9 @@ router.get('/setLivingRoomBrightness75', async () => {
 	}
 });
 
-router.get('/setLivingRoomBrightness100', async () => {
+router.get('/setLivingRoomBrightness100', async (request: Request) => {
 	try {
+		getRequestRevision(request);
 		await living_room.setBrightness(Brightness.B100);
 		return { status: 200, body: 'Set Brightness 100' };
 	} catch (e) {
@@ -239,7 +287,12 @@ router.get('/setLivingRoomBrightness100', async () => {
 
 router.post('/setLivingRoomColorTemp', async (request) => {
 	try {
-		const { pct } = (await request.json()) as { pct: number };
+		const { pct, revision, clientId } = (await request.json()) as {
+			pct: number;
+			revision?: number;
+			clientId?: string;
+		};
+		noteLivingRoomRevision(clientId, revision);
 		const tempK = await living_room.setColorTemperature(pct);
 		return { status: 200, body: `Set color temp ${pct} ${tempK}K` };
 	} catch (e) {
@@ -274,6 +327,7 @@ router.post('/syncLivingRoom', async (request) => {
 			synchronized: result.synchronized,
 			corrected: result.corrected,
 			desired: result.desired,
+			stale: result.stale ?? false,
 		};
 	} catch (e) {
 		return err(e);
@@ -282,7 +336,12 @@ router.post('/syncLivingRoom', async (request) => {
 
 router.post('/setLivingRoomColor', async (request) => {
 	try {
-		const { color } = (await request.json()) as { color: string };
+		const { color, revision, clientId } = (await request.json()) as {
+			color: string;
+			revision?: number;
+			clientId?: string;
+		};
+		noteLivingRoomRevision(clientId, revision);
 		const color_enum = color as ColorStr;
 		await living_room.setColor(color_enum);
 		return { status: 200, body: `Set Living Room Color ${color_enum}` };

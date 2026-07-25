@@ -252,6 +252,58 @@ describe('sync (reconciliation) endpoint', () => {
 		expect(controlCalls().length).toBe(0); // nothing to correct
 	});
 
+	it('does not correct color temperature when the desired snapshot omits it', async () => {
+		mockGoveeResponses(stateResponse({ on: true, brightness: 50, colorTemperatureK: 9000 }));
+
+		const res = await authed('/syncLivingRoom', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ on: true, brightness: 50 }),
+		});
+		expect(res.status).toBe(200);
+
+		const data = (await res.json()) as { synchronized: boolean; corrected: string[] };
+		expect(data.synchronized).toBe(true);
+		expect(data.corrected).toEqual([]);
+		assertSingleStateQuery();
+		expect(controlCalls().length).toBe(0);
+	});
+
+	it('ignores stale sync corrections after a newer client revision', async () => {
+		const colorRes = await authed('/setLivingRoomColor', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ clientId: 'race-client', revision: 2, color: 'red' }),
+		});
+		expect(colorRes.status).toBe(200);
+
+		mockPost.mockClear();
+		mockGoveeResponses(stateResponse({ on: true, brightness: 50, colorTemperatureK: 9000 }));
+
+		const res = await authed('/syncLivingRoom', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				clientId: 'race-client',
+				revision: 1,
+				on: true,
+				brightness: 50,
+				colorTemperaturePct: 0,
+			}),
+		});
+		expect(res.status).toBe(200);
+
+		const data = (await res.json()) as {
+			stale: boolean;
+			synchronized: boolean;
+			corrected: string[];
+		};
+		expect(data.stale).toBe(true);
+		expect(data.synchronized).toBe(false);
+		expect(data.corrected).toEqual([]);
+		expect(calls().length).toBe(0);
+	});
+
 	it('corrects drift by re-sending the desired state to every light', async () => {
 		// Observed on:true (default), desired on:false -> power everything off.
 		const res = await authed('/syncLivingRoom', {
