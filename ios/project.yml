@@ -116,6 +116,17 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.danieljomaa.devicepanel.core-tests
 
+  DevicePanelUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - DevicePanelUITests
+    dependencies:
+      - target: DevicePanel
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.danieljomaa.devicepanel.ui-tests
+
 schemes:
   DevicePanel:
     build:
@@ -129,5 +140,6 @@ schemes:
       config: Debug
       targets:
         - DevicePanelCoreTests
+        - DevicePanelUITests
     archive:
       config: Release

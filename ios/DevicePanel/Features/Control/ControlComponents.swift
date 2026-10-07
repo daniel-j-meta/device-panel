@@ -48,7 +48,7 @@ struct ConnectionStatusView: View {
 
     private var accessibilityLabel: String {
         guard let observedAt else { return phase.label }
-        return "\(phase.label). State updated \(observedAt.formatted(.relative(presentation: .named)))."
+        return "\(phase.label). State observed at \(observedAt.formatted(date: .omitted, time: .shortened))."
     }
 }
 

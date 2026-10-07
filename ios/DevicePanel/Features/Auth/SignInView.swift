@@ -49,12 +49,14 @@ struct SignInView: View {
                                 .focused($focusedField, equals: .server)
                                 .onSubmit { focusedField = .password }
                                 .accessibilityHint("The HTTPS address of your Device Panel server")
+                                .accessibilityIdentifier("serverURLField")
 
                             SecureField("Panel password", text: $password)
                                 .textContentType(.password)
                                 .submitLabel(.go)
                                 .focused($focusedField, equals: .password)
                                 .onSubmit(signIn)
+                                .accessibilityIdentifier("passwordField")
 
                             if let error = controller.lastError {
                                 Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -79,6 +81,7 @@ struct SignInView: View {
                             .tint(AppTheme.accent)
                             .foregroundStyle(AppTheme.backgroundTop)
                             .disabled(!canSubmit || controller.authentication == .signingIn)
+                            .accessibilityIdentifier("signInButton")
                         }
                         .textFieldStyle(.roundedBorder)
                         .padding(20)

@@ -30,3 +30,14 @@ curl http://localhost:8787/getLivingRoomState
 `GOVEE_API_KEY` is optional to boot but required for the Govee API calls to
 succeed; when set it's written to `.dev.vars` at startup and overrides the
 placeholder in `wrangler.jsonc`. Override the port with `-e PORT=xxxx`.
+
+## Native iOS app
+
+The SwiftUI app, interactive widget, Shortcuts/App Intents, and iOS 18 Control
+Center control live in [`ios/`](ios/). It targets iOS 17 and uses the versioned
+`/api/v1` Worker routes. The Worker keeps Govee credentials server-side and
+issues revocable native-app sessions through a Durable Object.
+
+See [`ios/README.md`](ios/README.md) for Xcode setup and test commands. The
+shared mobile requirements and rollout plan are in
+[`docs/mobile-app-plan.md`](docs/mobile-app-plan.md).

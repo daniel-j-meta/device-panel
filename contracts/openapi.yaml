@@ -1,0 +1,292 @@
+openapi: 3.1.0
+info:
+  title: Device Panel Native API
+  version: 1.0.0
+  description: Versioned contract used by the native iOS and Android clients.
+servers:
+  - url: https://panel.example/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /sessions:
+    post:
+      summary: Exchange the panel password for an opaque session token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Too many sign-in attempts
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /session:
+    delete:
+      summary: Revoke the current session
+      responses:
+        '204':
+          description: Session revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /rooms/living-room:
+    get:
+      summary: Read the representative Living Room state
+      responses:
+        '200':
+          description: Current room state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomState'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+  /rooms/living-room/commands:
+    post:
+      summary: Apply one idempotent Living Room command
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Must equal the commandId in the request body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomCommand'
+      responses:
+        '200':
+          description: Command accepted, or the stored result of an identical command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Command is stale or already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+  /rooms/living-room/reconcile:
+    post:
+      summary: Compare and repair the room against the latest desired state
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconcileRequest'
+      responses:
+        '200':
+          description: Reconciliation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReconcileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+  responses:
+    BadRequest:
+      description: Invalid request or value
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing, expired, or revoked session
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UpstreamError:
+      description: Govee could not complete the operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    SignInRequest:
+      type: object
+      additionalProperties: false
+      required: [password, clientId, deviceName]
+      properties:
+        password:
+          type: string
+          minLength: 1
+        clientId:
+          type: string
+          format: uuid
+        deviceName:
+          type: string
+          minLength: 1
+          maxLength: 100
+    Session:
+      type: object
+      additionalProperties: false
+      required: [token, expiresAt, serverLabel]
+      properties:
+        token:
+          type: string
+          minLength: 32
+        expiresAt:
+          type: string
+          format: date-time
+        serverLabel:
+          type: string
+    RoomState:
+      type: object
+      additionalProperties: false
+      required: [on, brightness, colorTemperaturePct, colorMode, observedAt, stateSource]
+      properties:
+        on:
+          type: boolean
+        brightness:
+          type: integer
+          minimum: 1
+          maximum: 100
+        colorTemperaturePct:
+          type: number
+          minimum: 0
+          maximum: 100
+        colorMode:
+          type: string
+          enum: [temperature, red, orange]
+        observedAt:
+          type: string
+          format: date-time
+        stateSource:
+          type: string
+          enum: [representative]
+    RoomChanges:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        on:
+          type: boolean
+        brightness:
+          type: integer
+          minimum: 1
+          maximum: 100
+        colorTemperaturePct:
+          type: number
+          minimum: 0
+          maximum: 100
+        color:
+          type: string
+          enum: [red, orange]
+    RoomCommand:
+      type: object
+      additionalProperties: false
+      required: [commandId, clientId, revision, changes]
+      properties:
+        commandId:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          minimum: 0
+        changes:
+          $ref: '#/components/schemas/RoomChanges'
+    CommandResponse:
+      type: object
+      additionalProperties: false
+      required: [accepted, state]
+      properties:
+        accepted:
+          type: boolean
+        state:
+          oneOf:
+            - $ref: '#/components/schemas/RoomState'
+            - type: 'null'
+    ReconcileRequest:
+      type: object
+      additionalProperties: false
+      required: [clientId, revision, on]
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          minimum: 0
+        on:
+          type: boolean
+        brightness:
+          type: integer
+          minimum: 1
+          maximum: 100
+        colorTemperaturePct:
+          type: number
+          minimum: 0
+          maximum: 100
+    ReconcileResponse:
+      type: object
+      additionalProperties: false
+      required: [state, synchronized, corrected, stale]
+      properties:
+        state:
+          oneOf:
+            - $ref: '#/components/schemas/RoomState'
+            - type: 'null'
+        synchronized:
+          type: boolean
+        corrected:
+          type: array
+          items:
+            type: string
+            enum: [on, brightness, colorTemperaturePct]
+        stale:
+          type: boolean
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
