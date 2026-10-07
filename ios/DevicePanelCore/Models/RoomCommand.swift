@@ -51,14 +51,14 @@ public struct ReconcileRequest: Codable, Equatable, Sendable {
     public let clientId: UUID
     public let revision: Int64
     public let on: Bool
-    public let brightness: Int
+    public let brightness: Int?
     public let colorTemperaturePct: Double?
 
     public init(
         clientId: UUID,
         revision: Int64,
         on: Bool,
-        brightness: Int,
+        brightness: Int?,
         colorTemperaturePct: Double?
     ) {
         self.clientId = clientId
@@ -74,4 +74,11 @@ public struct ReconcileResponse: Codable, Equatable, Sendable {
     public let synchronized: Bool
     public let corrected: [String]
     public let stale: Bool
+
+    public init(state: RoomState?, synchronized: Bool, corrected: [String], stale: Bool) {
+        self.state = state
+        self.synchronized = synchronized
+        self.corrected = corrected
+        self.stale = stale
+    }
 }

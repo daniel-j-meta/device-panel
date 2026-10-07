@@ -87,6 +87,60 @@ public struct RoomState: Codable, Equatable, Sendable {
     }
 }
 
+extension RoomState {
+    func applying(_ changes: RoomChanges, observedAt: Date? = nil) throws -> RoomState {
+        let colorMode: RoomColorMode
+        if let color = changes.color {
+            colorMode = switch color {
+            case .red: .red
+            case .orange: .orange
+            }
+        } else if changes.colorTemperaturePct != nil {
+            colorMode = .temperature
+        } else {
+            colorMode = self.colorMode
+        }
+
+        return try RoomState(
+            on: changes.on ?? on,
+            brightness: changes.brightness ?? brightness,
+            colorTemperaturePct: changes.colorTemperaturePct ?? colorTemperaturePct,
+            colorMode: colorMode,
+            observedAt: observedAt ?? self.observedAt,
+            stateSource: stateSource
+        )
+    }
+
+    func merging(_ fields: Set<RoomField>, from other: RoomState) throws -> RoomState {
+        try RoomState(
+            on: fields.contains(.power) ? other.on : on,
+            brightness: fields.contains(.brightness) ? other.brightness : brightness,
+            colorTemperaturePct: fields.contains(.temperature) ? other.colorTemperaturePct : colorTemperaturePct,
+            colorMode: fields.contains(.color) || fields.contains(.temperature) ? other.colorMode : colorMode,
+            observedAt: max(observedAt, other.observedAt),
+            stateSource: other.stateSource
+        )
+    }
+}
+
+enum RoomField: Hashable, Sendable {
+    case power
+    case brightness
+    case temperature
+    case color
+}
+
+extension RoomChanges {
+    var affectedFields: Set<RoomField> {
+        var fields = Set<RoomField>()
+        if on != nil { fields.insert(.power) }
+        if brightness != nil { fields.insert(.brightness) }
+        if colorTemperaturePct != nil { fields.insert(.temperature) }
+        if color != nil { fields.insert(.color) }
+        return fields
+    }
+}
+
 public enum RoomModelError: Error, Equatable, Sendable {
     case invalidBrightness(Int)
     case invalidColorTemperature(Double)
