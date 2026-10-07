@@ -11,6 +11,20 @@
     "enabled": true
   },
   "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SESSIONS",
+        "class_name": "SessionRegistry"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["SessionRegistry"]
+    }
+  ],
   // GOVEE_API_KEY and PANEL_PASSWORD are sensitive, so they are NOT committed
   // here. They're provided as:
   //   - local dev: .dev.vars (written by docker-entrypoint.sh from env)

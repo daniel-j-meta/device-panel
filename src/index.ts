@@ -4,6 +4,8 @@ import { LivingRoom } from './groups/LivingRoom';
 import { Brightness } from './models/Light';
 import { ColorStr } from './models/GoveeInterface';
 
+export { SessionRegistry } from './auth/SessionRegistry';
+
 const PORT = 80;
 
 // --- Auth -------------------------------------------------------------------
@@ -11,6 +13,56 @@ const PORT = 80;
 // pattern as GOVEE_API_KEY). It's stored in a cookie and must accompany every
 // request; unauthenticated requests are redirected to /login.
 const AUTH_COOKIE = 'panel_auth';
+const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const mobileJson = (value: unknown, status = 200, headers?: HeadersInit) =>
+	new Response(JSON.stringify(value), {
+		status,
+		headers: (() => {
+			const result = new Headers(headers);
+			result.set('content-type', 'application/json; charset=utf-8');
+			return result;
+		})(),
+	});
+
+const mobileError = (status: number, code: string, message: string, headers?: HeadersInit) =>
+	mobileJson({ code, message }, status, headers);
+
+function registry() {
+	const id = env.SESSIONS.idFromName('device-panel');
+	return env.SESSIONS.get(id);
+}
+
+async function registryRequest<T>(path: string, body?: unknown, method = 'POST'): Promise<T> {
+	const response = await registry().fetch(`https://session-registry${path}`, {
+		method,
+		headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+		body: body === undefined ? undefined : JSON.stringify(body),
+	});
+	if (!response.ok) throw new Error(`Session registry failed (${response.status})`);
+	return (response.status === 204 ? undefined : await response.json()) as T;
+}
+
+function bearerToken(request: Request): string | null {
+	const authorization = request.headers.get('Authorization');
+	if (!authorization?.startsWith('Bearer ')) return null;
+	const token = authorization.slice('Bearer '.length).trim();
+	return token.length > 0 ? token : null;
+}
+
+async function isValidBearer(request: Request): Promise<boolean> {
+	const token = bearerToken(request);
+	if (!token) return false;
+	const result = await registryRequest<{ valid: boolean }>('/sessions/validate', { token });
+	return result.valid;
+}
+
+async function rateLimitKey(request: Request): Promise<string> {
+	const source = `${request.headers.get('CF-Connecting-IP') ?? 'unknown'}:${request.headers.get('User-Agent') ?? 'unknown'}`;
+	const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
+	return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 function getCookie(request: Request, name: string): string | null {
 	const header = request.headers.get('Cookie') || '';
@@ -95,9 +147,19 @@ const loginPage = (error = false) => `<!DOCTYPE html>
 </html>`;
 
 // Gate every route except /login behind the auth cookie.
-const requireAuth = (request: Request) => {
+const requireAuth = async (request: Request) => {
 	const url = new URL(request.url);
 	if (url.pathname === '/login') return; // allow the login page + form post
+	if (url.pathname === '/api/v1/sessions' && request.method === 'POST') return;
+	if (url.pathname.startsWith('/api/v1/')) {
+		try {
+			if (await isValidBearer(request)) return;
+		} catch (error) {
+			console.error('Bearer validation failed', error);
+			return mobileError(503, 'SESSION_UNAVAILABLE', 'Authentication service unavailable');
+		}
+		return mobileError(401, 'AUTH_EXPIRED', 'Sign in again');
+	}
 	if (isAuthed(request)) return; // authenticated — continue to the route
 	return Response.redirect(new URL('/login', request.url).toString(), 302);
 };
@@ -128,6 +190,65 @@ router.post('/login', async (request) => {
 		status: 401,
 		headers: { 'content-type': 'text/html; charset=utf-8' },
 	});
+});
+
+// --- Native API authentication ---------------------------------------------
+// Native clients exchange the shared password for a random, revocable token.
+// The password never appears in the token and the Durable Object stores only a
+// SHA-256 hash of the token.
+router.post('/api/v1/sessions', async (request) => {
+	const limitKey = await rateLimitKey(request);
+	const limit = await registryRequest<{ allowed: boolean; retryAfter: number | null }>(
+		'/login/check',
+		{ key: limitKey },
+	);
+	if (!limit.allowed) {
+		return mobileError(429, 'RATE_LIMITED', 'Too many sign-in attempts', {
+			'Retry-After': String(limit.retryAfter ?? 60),
+		});
+	}
+
+	let payload: { password?: unknown; clientId?: unknown; deviceName?: unknown };
+	try {
+		payload = (await request.json()) as typeof payload;
+	} catch {
+		return mobileError(400, 'INVALID_REQUEST', 'Expected a JSON request body');
+	}
+
+	const password = typeof payload.password === 'string' ? payload.password : '';
+	const clientId = typeof payload.clientId === 'string' ? payload.clientId : '';
+	const deviceName = typeof payload.deviceName === 'string' ? payload.deviceName.trim() : '';
+	if (!UUID_PATTERN.test(clientId) || deviceName.length < 1 || deviceName.length > 100) {
+		return mobileError(400, 'INVALID_REQUEST', 'Valid clientId and deviceName are required');
+	}
+
+	const passwordMatches =
+		typeof env.PANEL_PASSWORD === 'string' &&
+		env.PANEL_PASSWORD.length > 0 &&
+		password === env.PANEL_PASSWORD;
+	await registryRequest('/login/record', { key: limitKey, success: passwordMatches });
+	if (!passwordMatches) {
+		return mobileError(401, 'INVALID_CREDENTIALS', 'Incorrect password');
+	}
+
+	const expiresAt = Date.now() + SESSION_LIFETIME_MS;
+	const { token } = await registryRequest<{ token: string }>('/sessions/create', {
+		clientId,
+		deviceName,
+		expiresAt,
+	});
+	return mobileJson({
+		token,
+		expiresAt: new Date(expiresAt).toISOString(),
+		serverLabel: 'Home',
+	});
+});
+
+router.delete('/api/v1/session', async (request) => {
+	const token = bearerToken(request);
+	if (!token) return mobileError(401, 'AUTH_EXPIRED', 'Sign in again');
+	await registryRequest('/sessions/revoke', { token });
+	return new Response(null, { status: 204 });
 });
 
 // Return a real HTTP error status so the UI can detect a failed command and
@@ -224,6 +345,216 @@ async function reconcileLivingRoom(desired: DesiredState) {
 
 	return { observed, desired, synchronized: corrected.length === 0, corrected };
 }
+
+type MobileChanges = {
+	on?: boolean;
+	brightness?: number;
+	colorTemperaturePct?: number;
+	color?: 'red' | 'orange';
+};
+
+type MobileCommand = {
+	commandId: string;
+	clientId: string;
+	revision: number;
+	changes: MobileChanges;
+};
+
+function parseMobileCommand(value: unknown): MobileCommand | Response {
+	if (!value || typeof value !== 'object') {
+		return mobileError(400, 'INVALID_REQUEST', 'Expected a command object');
+	}
+	const candidate = value as Partial<MobileCommand>;
+	if (
+		typeof candidate.commandId !== 'string' ||
+		!UUID_PATTERN.test(candidate.commandId) ||
+		typeof candidate.clientId !== 'string' ||
+		!UUID_PATTERN.test(candidate.clientId) ||
+		!Number.isSafeInteger(candidate.revision) ||
+		(candidate.revision as number) < 0 ||
+		!candidate.changes ||
+		typeof candidate.changes !== 'object'
+	) {
+		return mobileError(400, 'INVALID_REQUEST', 'Invalid command metadata');
+	}
+
+	const changes = candidate.changes;
+	const allowedKeys = new Set(['on', 'brightness', 'colorTemperaturePct', 'color']);
+	if (Object.keys(changes).some((key) => !allowedKeys.has(key))) {
+		return mobileError(400, 'INVALID_REQUEST', 'Command contains unsupported fields');
+	}
+	const hasChange = Object.keys(changes).length > 0;
+	if (!hasChange) return mobileError(400, 'INVALID_REQUEST', 'Command has no changes');
+	if (changes.on !== undefined && typeof changes.on !== 'boolean') {
+		return mobileError(400, 'INVALID_VALUE', 'Power must be a boolean');
+	}
+	if (
+		changes.brightness !== undefined &&
+		(!Number.isInteger(changes.brightness) || changes.brightness < 1 || changes.brightness > 100)
+	) {
+		return mobileError(400, 'INVALID_VALUE', 'Brightness must be an integer from 1 to 100');
+	}
+	if (
+		changes.colorTemperaturePct !== undefined &&
+		(!Number.isFinite(changes.colorTemperaturePct) ||
+			changes.colorTemperaturePct < 0 ||
+			changes.colorTemperaturePct > 100)
+	) {
+		return mobileError(400, 'INVALID_VALUE', 'Color temperature must be from 0 to 100');
+	}
+	if (changes.color !== undefined && !['red', 'orange'].includes(changes.color)) {
+		return mobileError(400, 'INVALID_VALUE', 'Color must be red or orange');
+	}
+	if (changes.color !== undefined && changes.colorTemperaturePct !== undefined) {
+		return mobileError(400, 'INVALID_VALUE', 'Color and color temperature cannot change together');
+	}
+
+	return candidate as MobileCommand;
+}
+
+async function roomColorMode(): Promise<'temperature' | 'red' | 'orange'> {
+	const result = await registryRequest<{ colorMode: 'temperature' | 'red' | 'orange' }>(
+		'/room-mode',
+		undefined,
+		'GET',
+	);
+	return result.colorMode;
+}
+
+async function setRoomColorMode(colorMode: 'temperature' | 'red' | 'orange') {
+	await registryRequest('/room-mode', { colorMode });
+}
+
+async function observedMobileState() {
+	const state = await living_room.getLightState();
+	return {
+		...state,
+		colorMode: await roomColorMode(),
+		observedAt: new Date().toISOString(),
+		stateSource: 'representative' as const,
+	};
+}
+
+router.get('/api/v1/rooms/living-room', async () => {
+	try {
+		return mobileJson(await observedMobileState());
+	} catch (error) {
+		console.error('Mobile state read failed', error);
+		return mobileError(502, 'UPSTREAM_ERROR', 'Could not read Living Room state');
+	}
+});
+
+router.post('/api/v1/rooms/living-room/commands', async (request) => {
+	let body: unknown;
+	try {
+		body = await request.json();
+	} catch {
+		return mobileError(400, 'INVALID_REQUEST', 'Expected a JSON request body');
+	}
+	const command = parseMobileCommand(body);
+	if (command instanceof Response) return command;
+	if (request.headers.get('Idempotency-Key') !== command.commandId) {
+		return mobileError(400, 'INVALID_REQUEST', 'Idempotency-Key must match commandId');
+	}
+
+	const claim = await registryRequest<{
+		status: 'claimed' | 'complete' | 'pending' | 'stale';
+		response?: unknown;
+		latestRevision?: number;
+	}>('/commands/claim', command);
+	if (claim.status === 'complete') return mobileJson(claim.response);
+	if (claim.status === 'pending') {
+		return mobileError(409, 'COMMAND_IN_PROGRESS', 'Command is already being applied', {
+			'Retry-After': '1',
+		});
+	}
+	if (claim.status === 'stale') {
+		return mobileError(409, 'STALE_COMMAND', 'A newer command already exists');
+	}
+
+	try {
+		const changes = command.changes;
+		if (changes.on === true) await living_room.on();
+		if (changes.brightness !== undefined) {
+			await living_room.setBrightness(changes.brightness as Brightness);
+		}
+		if (changes.colorTemperaturePct !== undefined) {
+			await living_room.setColorTemperature(changes.colorTemperaturePct);
+			await setRoomColorMode('temperature');
+		}
+		if (changes.color !== undefined) {
+			await living_room.setColor(changes.color as ColorStr);
+			await setRoomColorMode(changes.color);
+		}
+		if (changes.on === false) await living_room.off();
+
+		const response = { accepted: true, state: null };
+		await registryRequest('/commands/complete', { commandId: command.commandId, response });
+		return mobileJson(response);
+	} catch (error) {
+		await registryRequest('/commands/release', { commandId: command.commandId });
+		console.error('Mobile command failed', error);
+		return mobileError(502, 'UPSTREAM_ERROR', 'Could not apply Living Room command');
+	}
+});
+
+router.post('/api/v1/rooms/living-room/reconcile', async (request) => {
+	let desired: DesiredState;
+	try {
+		desired = (await request.json()) as DesiredState;
+	} catch {
+		return mobileError(400, 'INVALID_REQUEST', 'Expected a JSON request body');
+	}
+	if (
+		typeof desired.clientId !== 'string' ||
+		!UUID_PATTERN.test(desired.clientId) ||
+		!Number.isSafeInteger(desired.revision) ||
+		(desired.revision as number) < 0 ||
+		typeof desired.on !== 'boolean' ||
+		(desired.brightness !== undefined &&
+			(!Number.isInteger(desired.brightness) || desired.brightness < 1 || desired.brightness > 100)) ||
+		(desired.colorTemperaturePct !== undefined &&
+			(!Number.isFinite(desired.colorTemperaturePct) ||
+				desired.colorTemperaturePct < 0 ||
+				desired.colorTemperaturePct > 100))
+	) {
+		return mobileError(400, 'INVALID_REQUEST', 'Invalid desired room state');
+	}
+
+	const revision = await registryRequest<{ stale: boolean }>('/revisions/check', {
+		clientId: desired.clientId,
+		revision: desired.revision,
+	});
+	if (revision.stale) {
+		return mobileJson({
+			state: null,
+			synchronized: false,
+			corrected: [],
+			stale: true,
+		});
+	}
+
+	try {
+		const result = await reconcileLivingRoom(desired);
+		const state = result.observed
+			? {
+					...result.observed,
+					colorMode: await roomColorMode(),
+					observedAt: new Date().toISOString(),
+					stateSource: 'representative' as const,
+				}
+			: null;
+		return mobileJson({
+			state,
+			synchronized: result.synchronized,
+			corrected: result.corrected,
+			stale: result.stale ?? false,
+		});
+	} catch (error) {
+		console.error('Mobile reconciliation failed', error);
+		return mobileError(502, 'UPSTREAM_ERROR', 'Could not reconcile Living Room state');
+	}
+});
 
 router.get('/turnOnLivingRoom', async (request: Request) => {
 	try {

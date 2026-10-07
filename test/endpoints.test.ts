@@ -51,6 +51,29 @@ const authed = (path: string, init: RequestInit = {}) =>
 		headers: { Cookie: COOKIE, ...(init.headers || {}) },
 	});
 
+const nativeSignIn = async () => {
+	const response = await SELF.fetch(`${BASE}/api/v1/sessions`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			password: 'test-pass',
+			clientId: crypto.randomUUID(),
+			deviceName: 'Vitest iPhone',
+		}),
+	});
+	expect(response.status).toBe(200);
+	const body = (await response.json()) as { token: string; expiresAt: string; serverLabel: string };
+	expect(body.token).not.toContain('test-pass');
+	expect(new Date(body.expiresAt).getTime()).toBeGreaterThan(Date.now());
+	return body.token;
+};
+
+const nativeFetch = async (token: string, path: string, init: RequestInit = {}) =>
+	SELF.fetch(`${BASE}${path}`, {
+		...init,
+		headers: { Authorization: `Bearer ${token}`, ...(init.headers || {}) },
+	});
+
 // Assert every control request is a well-formed Govee control call that targets
 // each configured light exactly once with the expected capability.
 function assertControlFleet(expectedCapability: (light: (typeof FLEET)[number]) => object) {
@@ -336,5 +359,157 @@ describe('Govee failure handling', () => {
 		mockPost.mockRejectedValue(new Error('Govee 500'));
 		const res = await authed('/getLivingRoomState');
 		expect(res.status).toBe(500);
+	});
+});
+
+describe('native API authentication', () => {
+	it('returns JSON 401 instead of a login redirect without a bearer token', async () => {
+		const response = await SELF.fetch(`${BASE}/api/v1/rooms/living-room`, {
+			redirect: 'manual',
+		});
+		expect(response.status).toBe(401);
+		expect(response.headers.get('content-type')).toContain('application/json');
+		expect(await response.json()).toEqual({ code: 'AUTH_EXPIRED', message: 'Sign in again' });
+	});
+
+	it('exchanges the panel password for an opaque session and revokes it', async () => {
+		const token = await nativeSignIn();
+
+		const beforeSignOut = await nativeFetch(token, '/api/v1/rooms/living-room');
+		expect(beforeSignOut.status).toBe(200);
+
+		const signOut = await nativeFetch(token, '/api/v1/session', { method: 'DELETE' });
+		expect(signOut.status).toBe(204);
+
+		const afterSignOut = await nativeFetch(token, '/api/v1/rooms/living-room');
+		expect(afterSignOut.status).toBe(401);
+	});
+
+	it('rejects an incorrect password without setting a cookie', async () => {
+		const response = await SELF.fetch(`${BASE}/api/v1/sessions`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'User-Agent': `wrong-password-${crypto.randomUUID()}`,
+			},
+			body: JSON.stringify({
+				password: 'wrong',
+				clientId: crypto.randomUUID(),
+				deviceName: 'Vitest iPhone',
+			}),
+		});
+		expect(response.status).toBe(401);
+		expect(response.headers.get('set-cookie')).toBeNull();
+		expect(await response.json()).toEqual({
+			code: 'INVALID_CREDENTIALS',
+			message: 'Incorrect password',
+		});
+	});
+});
+
+describe('native room API', () => {
+	it('returns the versioned room state expected by Swift', async () => {
+		const token = await nativeSignIn();
+		mockGoveeResponses(stateResponse({ on: true, brightness: 34, colorTemperatureK: 5500 }));
+
+		const response = await nativeFetch(token, '/api/v1/rooms/living-room');
+		expect(response.status).toBe(200);
+		const state = (await response.json()) as Record<string, unknown>;
+		expect(state.on).toBe(true);
+		expect(state.brightness).toBe(34);
+		expect(state.colorMode).toMatch(/^(temperature|red|orange)$/);
+		expect(state.stateSource).toBe('representative');
+		expect(Number.isNaN(Date.parse(String(state.observedAt)))).toBe(false);
+	});
+
+	it('applies an idempotent brightness command only once', async () => {
+		const token = await nativeSignIn();
+		const commandId = crypto.randomUUID();
+		const command = {
+			commandId,
+			clientId: crypto.randomUUID(),
+			revision: Date.now() * 1000,
+			changes: { brightness: 75 },
+		};
+		const request = () =>
+			nativeFetch(token, '/api/v1/rooms/living-room/commands', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Idempotency-Key': commandId,
+				},
+				body: JSON.stringify(command),
+			});
+
+		const first = await request();
+		expect(first.status).toBe(200);
+		expect(await first.json()).toEqual({ accepted: true, state: null });
+		assertControlFleet(() => ({
+			type: 'devices.capabilities.range',
+			instance: 'brightness',
+			value: 75,
+		}));
+
+		const callCount = calls().length;
+		const second = await request();
+		expect(second.status).toBe(200);
+		expect(calls().length).toBe(callCount);
+	});
+
+	it('rejects unsupported custom colors before calling Govee', async () => {
+		const token = await nativeSignIn();
+		const commandId = crypto.randomUUID();
+		const response = await nativeFetch(token, '/api/v1/rooms/living-room/commands', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Idempotency-Key': commandId,
+			},
+			body: JSON.stringify({
+				commandId,
+				clientId: crypto.randomUUID(),
+				revision: Date.now() * 1000,
+				changes: { color: 'custom1' },
+			}),
+		});
+
+		expect(response.status).toBe(400);
+		expect(calls()).toHaveLength(0);
+	});
+
+	it('does not apply a stale reconciliation request', async () => {
+		const token = await nativeSignIn();
+		const clientId = crypto.randomUUID();
+		const commandId = crypto.randomUUID();
+		const commandResponse = await nativeFetch(token, '/api/v1/rooms/living-room/commands', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Idempotency-Key': commandId,
+			},
+			body: JSON.stringify({
+				commandId,
+				clientId,
+				revision: 2,
+				changes: { on: true },
+			}),
+		});
+		expect(commandResponse.status).toBe(200);
+
+		mockPost.mockClear();
+		const response = await nativeFetch(token, '/api/v1/rooms/living-room/reconcile', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ clientId, revision: 1, on: false }),
+		});
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({
+			state: null,
+			synchronized: false,
+			corrected: [],
+			stale: true,
+		});
+		expect(calls()).toHaveLength(0);
 	});
 });
