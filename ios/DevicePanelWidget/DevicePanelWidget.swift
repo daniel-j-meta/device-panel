@@ -1,3 +1,4 @@
+import AppIntents
 import DevicePanelCore
 import SwiftUI
 import WidgetKit
