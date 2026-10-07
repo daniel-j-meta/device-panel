@@ -53,6 +53,7 @@ targets:
       path: DevicePanel/Info.plist
       properties:
         CFBundleDisplayName: Device Panel
+        DevicePanelKeychainAccessGroup: $(AppIdentifierPrefix)com.danieljomaa.devicepanel.shared
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
