@@ -35,6 +35,7 @@ public final class RoomController: ObservableObject {
     @Published public private(set) var roomState: RoomState?
     @Published public private(set) var isPowerCommandInFlight = false
     @Published public private(set) var lastError: String?
+    @Published public private(set) var serverURLString = ""
 
     private let api: any DevicePanelAPI
     private let sessionStore: any SessionStoring
@@ -77,10 +78,12 @@ public final class RoomController: ObservableObject {
         latestRevision = await preferences.currentRevision()
 
         do {
+            let savedConfiguration = try await preferences.serverConfiguration(
+                allowInsecureLocalhost: allowInsecureLocalhost
+            )
+            serverURLString = savedConfiguration?.baseURL.absoluteString ?? ""
             guard
-                let configuration = try await preferences.serverConfiguration(
-                    allowInsecureLocalhost: allowInsecureLocalhost
-                ),
+                let configuration = savedConfiguration,
                 let session = try await sessionStore.load(),
                 !session.isExpired
             else {
@@ -117,6 +120,7 @@ public final class RoomController: ObservableObject {
             }
             try await sessionStore.save(session)
             await preferences.saveServerConfiguration(configuration)
+            serverURLString = configuration.baseURL.absoluteString
             self.configuration = configuration
             self.session = session
             authentication = .signedIn(serverLabel: session.serverLabel)
