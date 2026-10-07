@@ -56,6 +56,8 @@ targets:
       properties:
         CFBundleDisplayName: Device Panel
         DevicePanelKeychainAccessGroup: $(AppIdentifierPrefix)com.danieljomaa.devicepanel.shared
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         CFBundleURLTypes:
           - CFBundleURLName: com.danieljomaa.devicepanel
             CFBundleURLSchemes:

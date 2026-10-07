@@ -96,7 +96,7 @@ final class HTTPDevicePanelAPITests: XCTestCase {
         """
         {
           "token": "test-session-token",
-          "expiresAt": "2026-11-07T20:00:00Z",
+          "expiresAt": "2026-11-07T20:00:00.123Z",
           "serverLabel": "Home"
         }
         """.utf8

@@ -3,6 +3,6 @@
   "brightness": 34,
   "colorTemperaturePct": 50,
   "colorMode": "temperature",
-  "observedAt": "2026-10-07T20:00:00Z",
+  "observedAt": "2026-10-07T20:00:00.123Z",
   "stateSource": "representative"
 }
