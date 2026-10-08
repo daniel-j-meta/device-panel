@@ -1,28 +1,25 @@
 import XCTest
 
-@MainActor
 final class DevicePanelUITests: XCTestCase {
     private var server: LocalDevicePanelServer!
-    private var app: XCUIApplication!
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         server = LocalDevicePanelServer()
         try server.start()
-        app = XCUIApplication()
-        app.launchArguments = ["-ui-testing-reset"]
     }
 
     override func tearDown() {
-        app?.terminate()
         server?.stop()
-        app = nil
         server = nil
         super.tearDown()
     }
 
+    @MainActor
     func testCompleteControlFlowUsesOnlyLoopbackAndRollsBackFailures() {
-        launchAndSignIn()
+        let app = makeApp()
+        defer { app.terminate() }
+        launchAndSignIn(app)
 
         let power = app.buttons["powerControl"]
         XCTAssertTrue(power.waitForExistence(timeout: 5))
@@ -70,8 +67,11 @@ final class DevicePanelUITests: XCTestCase {
         XCTAssertTrue(server.requestedPaths.allSatisfy { $0.hasPrefix("/api/v1/") })
     }
 
+    @MainActor
     func testExpiredSessionReturnsToSignIn() {
-        launchAndSignIn()
+        let app = makeApp()
+        defer { app.terminate() }
+        launchAndSignIn(app)
         server.expireNextAuthenticatedRequest()
 
         app.swipeDown()
@@ -80,7 +80,15 @@ final class DevicePanelUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Your session has expired. Sign in again."].exists)
     }
 
-    private func launchAndSignIn() {
+    @MainActor
+    private func makeApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing-reset"]
+        return app
+    }
+
+    @MainActor
+    private func launchAndSignIn(_ app: XCUIApplication) {
         app.launch()
 
         let serverField = app.textFields["serverURLField"]
@@ -97,6 +105,7 @@ final class DevicePanelUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["connectionStatus"].waitForExistence(timeout: 5))
     }
 
+    @MainActor
     private func waitForValue(
         _ value: String,
         element: XCUIElement,

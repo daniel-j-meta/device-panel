@@ -100,6 +100,7 @@ class DevicePanelViewModel(
             )
             refresh()
         } catch (error: Exception) {
+            Log.e("DevicePanel", "Sign-in failed", error)
             mutableState.value = mutableState.value.copy(
                 authentication = AuthenticationPhase.SignedOut,
                 error = error.userMessage(),
