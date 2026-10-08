@@ -23,6 +23,7 @@ struct ConnectionStatusView: View {
         }
         .padding(14)
         .appSurface()
+        .accessibilityIdentifier("connectionStatus")
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -89,6 +90,7 @@ struct PowerControl: View {
         .accessibilityLabel("Living Room power")
         .accessibilityValue(isOn ? "On" : "Off")
         .accessibilityHint(isBusy ? "Applying the power change" : "Double tap to turn \(isOn ? "off" : "on")")
+        .accessibilityIdentifier("powerControl")
     }
 }
 
@@ -136,6 +138,7 @@ struct ColorSection: View {
         .buttonStyle(.plain)
         .accessibilityLabel(label)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityIdentifier("color\(label)")
     }
 }
 
@@ -189,6 +192,7 @@ struct BrightnessSection: View {
                     .foregroundStyle(selected ? AppTheme.accent : .primary)
                     .accessibilityLabel("\(preset) percent brightness")
                     .accessibilityValue(selected ? "Selected" : "Not selected")
+                    .accessibilityIdentifier("brightness\(preset)")
                 }
             }
         }
@@ -237,6 +241,7 @@ struct TemperatureSection: View {
             )
             .accessibilityLabel("Color temperature")
             .accessibilityValue(TemperatureFormatter.accessibilityValue(for: value))
+            .accessibilityIdentifier("temperatureSlider")
 
             HStack {
                 Text("Warm −100%")
@@ -271,5 +276,6 @@ struct ErrorBanner: View {
         .padding(16)
         .appSurface()
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("errorBanner")
     }
 }

@@ -5,14 +5,16 @@ import Foundation
 enum AppEnvironment {
     static func makeRoomController() -> RoomController {
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset") {
-            let suiteName = "com.danieljomaa.devicepanel.ui-tests"
-            UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
+            let accessGroup = Bundle.main.object(
+                forInfoDictionaryKey: "DevicePanelKeychainAccessGroup"
+            ) as? String
             return RoomController(
-                api: HTTPDevicePanelAPI(),
-                sessionStore: InMemorySessionStore(),
-                preferences: SharedPreferences(suiteName: suiteName),
+                api: HTTPDevicePanelAPI(allowedHosts: ["127.0.0.1", "localhost", "::1"]),
+                sessionStore: KeychainSessionStore(accessGroup: accessGroup),
+                preferences: SharedPreferences(),
                 allowInsecureLocalhost: true,
-                reconcileDelays: []
+                reconcileDelays: [.milliseconds(50), .milliseconds(100)],
+                resetPersistentStateOnStart: true
             )
         }
 

@@ -12,8 +12,9 @@ public actor HTTPDevicePanelAPI: DevicePanelAPI {
     private let session: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    private let allowedHosts: Set<String>?
 
-    public init(session: URLSession? = nil) {
+    public init(session: URLSession? = nil, allowedHosts: Set<String>? = nil) {
         if let session {
             self.session = session
         } else {
@@ -25,6 +26,7 @@ public actor HTTPDevicePanelAPI: DevicePanelAPI {
             configuration.urlCredentialStorage = nil
             self.session = URLSession(configuration: configuration)
         }
+        self.allowedHosts = allowedHosts.map { Set($0.map { $0.lowercased() }) }
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -164,6 +166,11 @@ public actor HTTPDevicePanelAPI: DevicePanelAPI {
         body: Data?,
         commandID: UUID?
     ) async throws -> (Data, HTTPURLResponse) {
+        if let allowedHosts {
+            guard let host = baseURL.host?.lowercased(), allowedHosts.contains(host) else {
+                throw DevicePanelError.invalidServerURL
+            }
+        }
         let trimmedBase = baseURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard let url = URL(string: trimmedBase + path) else {
             throw DevicePanelError.invalidServerURL

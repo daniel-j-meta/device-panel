@@ -87,6 +87,7 @@ targets:
       - DevicePanelWidget
     dependencies:
       - target: DevicePanelCore
+      - target: DevicePanelWidgetSupport
     entitlements:
       path: DevicePanelWidget/DevicePanelWidget.entitlements
       properties:
@@ -105,6 +106,20 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.danieljomaa.devicepanel.widget
         SKIP_INSTALL: true
+        APPLICATION_EXTENSION_API_ONLY: true
+
+  DevicePanelWidgetSupport:
+    type: framework
+    platform: iOS
+    sources:
+      - DevicePanelWidgetSupport
+    dependencies:
+      - target: DevicePanelCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.danieljomaa.devicepanel.widget-support
+        SKIP_INSTALL: true
+        DEFINES_MODULE: true
         APPLICATION_EXTENSION_API_ONLY: true
 
   DevicePanelCoreTests:
@@ -129,12 +144,25 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.danieljomaa.devicepanel.ui-tests
 
+  DevicePanelWidgetTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - DevicePanelWidgetTests
+    dependencies:
+      - target: DevicePanelCore
+      - target: DevicePanelWidgetSupport
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.danieljomaa.devicepanel.widget-tests
+
 schemes:
   DevicePanel:
     build:
       targets:
         DevicePanel: all
         DevicePanelCore: [test]
+        DevicePanelWidgetSupport: [test]
         DevicePanelWidget: all
     run:
       config: Debug
@@ -142,6 +170,7 @@ schemes:
       config: Debug
       targets:
         - DevicePanelCoreTests
+        - DevicePanelWidgetTests
         - DevicePanelUITests
     archive:
       config: Release

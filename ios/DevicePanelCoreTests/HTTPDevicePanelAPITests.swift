@@ -86,6 +86,27 @@ final class HTTPDevicePanelAPITests: XCTestCase {
         }
     }
 
+    func testLoopbackModeRejectsExternalHostsBeforeStartingARequest() async {
+        URLProtocolStub.handler = { _ in
+            XCTFail("An external request must not start in loopback-only mode")
+            throw DevicePanelError.invalidServerURL
+        }
+        let client = HTTPDevicePanelAPI(
+            session: makeSession(),
+            allowedHosts: ["localhost", "127.0.0.1", "::1"]
+        )
+
+        do {
+            _ = try await client.fetchRoom(
+                baseURL: URL(string: "https://external.example")!,
+                token: "token"
+            )
+            XCTFail("Expected invalidServerURL")
+        } catch {
+            XCTAssertEqual(error as? DevicePanelError, .invalidServerURL)
+        }
+    }
+
     private func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [URLProtocolStub.self]

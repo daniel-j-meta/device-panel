@@ -42,6 +42,7 @@ public final class RoomController: ObservableObject {
     private let preferences: SharedPreferences
     private let allowInsecureLocalhost: Bool
     private let reconcileDelays: [Duration]
+    private let resetPersistentStateOnStart: Bool
 
     private var configuration: ServerConfiguration?
     private var session: Session?
@@ -56,13 +57,15 @@ public final class RoomController: ObservableObject {
         sessionStore: any SessionStoring,
         preferences: SharedPreferences,
         allowInsecureLocalhost: Bool = false,
-        reconcileDelays: [Duration] = [.seconds(3), .seconds(6), .seconds(10), .seconds(15)]
+        reconcileDelays: [Duration] = [.seconds(3), .seconds(6), .seconds(10), .seconds(15)],
+        resetPersistentStateOnStart: Bool = false
     ) {
         self.api = api
         self.sessionStore = sessionStore
         self.preferences = preferences
         self.allowInsecureLocalhost = allowInsecureLocalhost
         self.reconcileDelays = reconcileDelays
+        self.resetPersistentStateOnStart = resetPersistentStateOnStart
     }
 
     public var canRetryLastCommand: Bool {
@@ -70,6 +73,10 @@ public final class RoomController: ObservableObject {
     }
 
     public func start() async {
+        if resetPersistentStateOnStart {
+            try? await sessionStore.clear()
+            await preferences.reset()
+        }
         if let cached = await preferences.cachedRoomState() {
             roomState = cached
             confirmedState = cached

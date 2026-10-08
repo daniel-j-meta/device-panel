@@ -76,4 +76,11 @@ public actor SharedPreferences {
     public func clearCachedRoomState() {
         defaults.removeObject(forKey: Key.roomState)
     }
+
+    public func reset() {
+        defaults.removeObject(forKey: Key.serverURL)
+        defaults.removeObject(forKey: Key.clientID)
+        defaults.removeObject(forKey: Key.revision)
+        defaults.removeObject(forKey: Key.roomState)
+    }
 }
