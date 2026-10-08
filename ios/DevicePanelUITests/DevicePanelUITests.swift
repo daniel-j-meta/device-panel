@@ -47,7 +47,7 @@ final class DevicePanelUITests: XCTestCase {
 
         server.failNextCommandRequest()
         power.tap()
-        XCTAssertTrue(app.otherElements["errorBanner"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["errorBanner"].waitForExistence(timeout: 5))
         waitForValue("On", element: power)
 
         app.buttons["Retry Command"].tap()
@@ -102,7 +102,7 @@ final class DevicePanelUITests: XCTestCase {
         app.buttons["signInButton"].tap()
 
         XCTAssertTrue(app.navigationBars["Living Room"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.otherElements["connectionStatus"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["connectionStatus"].waitForExistence(timeout: 5))
     }
 
     @MainActor

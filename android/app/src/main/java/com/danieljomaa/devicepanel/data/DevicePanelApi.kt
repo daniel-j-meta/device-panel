@@ -1,6 +1,8 @@
 package com.danieljomaa.devicepanel.data
 
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.Call
@@ -85,12 +87,11 @@ class OkHttpDevicePanelApi(
         token: String? = null,
         body: String? = null,
         headers: Map<String, String> = emptyMap(),
-    ): T {
-        val response = perform(baseUrl, path, method, token, body, headers)
-        response.use {
+    ): T = withContext(Dispatchers.IO) {
+        perform(baseUrl, path, method, token, body, headers).use {
             validate(it)
             val value = it.body?.string() ?: throw DevicePanelException.InvalidResponse
-            return try {
+            try {
                 json.decodeFromString<T>(value)
             } catch (error: Exception) {
                 throw DevicePanelException.InvalidResponse
@@ -104,7 +105,9 @@ class OkHttpDevicePanelApi(
         method: String,
         token: String,
     ) {
-        perform(baseUrl, path, method, token, null, emptyMap()).use(::validate)
+        withContext(Dispatchers.IO) {
+            perform(baseUrl, path, method, token, null, emptyMap()).use(::validate)
+        }
     }
 
     private suspend fun perform(

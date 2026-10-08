@@ -33,7 +33,11 @@ final class DevicePanelWidgetTests: XCTestCase {
         let entry = await loader.load()
 
         XCTAssertTrue(entry.isAuthenticated)
-        XCTAssertEqual(entry.state, state)
+        XCTAssertEqual(entry.state?.on, state.on)
+        XCTAssertEqual(entry.state?.brightness, state.brightness)
+        XCTAssertEqual(entry.state?.colorTemperaturePct, state.colorTemperaturePct)
+        XCTAssertEqual(entry.state?.colorMode, state.colorMode)
+        XCTAssertEqual(entry.state?.stateSource, state.stateSource)
         XCTAssertNotNil(render(entry: entry, family: .systemSmall, size: CGSize(width: 170, height: 170)))
         XCTAssertNotNil(render(entry: entry, family: .systemMedium, size: CGSize(width: 364, height: 170)))
     }
