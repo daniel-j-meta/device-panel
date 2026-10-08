@@ -2,15 +2,13 @@ package com.danieljomaa.devicepanel
 
 import android.content.Context
 import android.content.Intent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onAllNodes
+import androidx.compose.ui.test.percentOffset
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
@@ -74,7 +72,7 @@ class DevicePanelEmulatorTest {
         assertState("colorRed", "Selected")
 
         compose.onNodeWithTag("temperatureSlider").performTouchInput {
-            click(Offset(size.width * 0.25f, size.height * 0.5f))
+            click(percentOffset(0.25f, 0.5f))
         }
         waitForServer { kotlin.math.abs(it.colorTemperaturePct - 25) <= 3 && it.colorMode == "temperature" }
 
