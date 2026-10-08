@@ -41,3 +41,9 @@ issues revocable native-app sessions through a Durable Object.
 See [`ios/README.md`](ios/README.md) for Xcode setup and test commands. The
 shared mobile requirements and rollout plan are in
 [`docs/mobile-app-plan.md`](docs/mobile-app-plan.md).
+
+## Native Android app
+
+The Kotlin/Compose app and interactive Jetpack Glance widget live in
+[`android/`](android/). See [`android/README.md`](android/README.md) for build,
+emulator-test, and widget-test commands.

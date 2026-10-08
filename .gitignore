@@ -141,3 +141,10 @@ ios/DevicePanel.xcodeproj/
 ios/DerivedData/
 *.xcuserstate
 xcuserdata/
+
+# Android / Gradle
+android/.gradle/
+android/.idea/
+android/**/build/
+android/local.properties
+*.iml
