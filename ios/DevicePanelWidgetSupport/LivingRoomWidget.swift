@@ -71,6 +71,7 @@ public struct LivingRoomProvider: TimelineProvider {
 
     private func loadEntry(completion: @escaping (LivingRoomEntry) -> Void) {
         let completion = CompletionBox(completion)
+        let loader = loader
         Task {
             completion.call(await loader.load())
         }

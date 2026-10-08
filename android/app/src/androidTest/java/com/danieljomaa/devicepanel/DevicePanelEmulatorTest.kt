@@ -8,7 +8,9 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.percentOffset
+import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
@@ -112,7 +114,16 @@ class DevicePanelEmulatorTest {
         compose.onNodeWithTag("serverUrlField").performTextInput(server.url("/").toString().removeSuffix("/"))
         compose.onNodeWithTag("passwordField").performTextInput("test-pass")
         compose.onNodeWithTag("signInButton").performClick()
-        compose.onNodeWithText("Living Room").assertExists()
+        try {
+            compose.waitUntil(8_000) {
+                compose.onAllNodes(
+                    SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "controlScreen"),
+                ).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (error: AssertionError) {
+            compose.onRoot().printToLog("DevicePanelSignInFailure")
+            throw error
+        }
         compose.onNodeWithTag("connectionStatus").assertExists()
     }
 

@@ -217,6 +217,7 @@ private fun ControlScreen(
     }
 
     Scaffold(
+        modifier = Modifier.testTag("controlScreen"),
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
