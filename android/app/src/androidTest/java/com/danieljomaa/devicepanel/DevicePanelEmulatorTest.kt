@@ -111,7 +111,8 @@ class DevicePanelEmulatorTest {
     }
 
     private fun signIn() {
-        compose.onNodeWithTag("serverUrlField").performTextInput(server.url("/").toString().removeSuffix("/"))
+        val loopbackUrl = server.url("/").newBuilder().host("127.0.0.1").build()
+        compose.onNodeWithTag("serverUrlField").performTextInput(loopbackUrl.toString().removeSuffix("/"))
         compose.onNodeWithTag("passwordField").performTextInput("test-pass")
         compose.onNodeWithTag("signInButton").performClick()
         try {
@@ -120,11 +121,15 @@ class DevicePanelEmulatorTest {
                     SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "controlScreen"),
                 ).fetchSemanticsNodes().isNotEmpty()
             }
-        } catch (error: AssertionError) {
+        } catch (error: Throwable) {
             compose.onRoot().printToLog("DevicePanelSignInFailure")
-            throw error
+            throw AssertionError(
+                "Timed out signing in; server=${dispatcher.snapshot()}, paths=${dispatcher.paths()}",
+                error,
+            )
         }
         compose.onNodeWithTag("connectionStatus").assertExists()
+        assertState("connectionStatus", "Connected")
     }
 
     private fun assertState(tag: String, value: String) {
@@ -135,7 +140,7 @@ class DevicePanelEmulatorTest {
                         SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value),
                 ).fetchSemanticsNodes().isNotEmpty()
             }
-        } catch (error: AssertionError) {
+        } catch (error: Throwable) {
             compose.onRoot().printToLog("DevicePanelStateFailure")
             throw AssertionError(
                 "Timed out waiting for $tag to report '$value'; server=${dispatcher.snapshot()}, paths=${dispatcher.paths()}",
@@ -150,7 +155,7 @@ class DevicePanelEmulatorTest {
     private fun waitForServer(condition: (StatefulApiDispatcher.Snapshot) -> Boolean) {
         try {
             compose.waitUntil(5_000) { condition(dispatcher.snapshot()) }
-        } catch (error: AssertionError) {
+        } catch (error: Throwable) {
             throw AssertionError(
                 "Timed out waiting for loopback server; server=${dispatcher.snapshot()}, paths=${dispatcher.paths()}",
                 error,

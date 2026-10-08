@@ -56,8 +56,7 @@ final class DevicePanelWidgetTests: XCTestCase {
         family: WidgetFamily,
         size: CGSize
     ) -> UIImage? {
-        let content = LivingRoomWidgetContent(entry: entry)
-            .environment(\.widgetFamily, family)
+        let content = LivingRoomWidgetContent(entry: entry, familyOverride: family)
             .frame(width: size.width, height: size.height)
         let renderer = ImageRenderer(content: content)
         renderer.scale = 2

@@ -3,7 +3,7 @@ import DevicePanelCore
 import SwiftUI
 import WidgetKit
 
-public struct LivingRoomEntry: TimelineEntry {
+public struct LivingRoomEntry: TimelineEntry, Sendable {
     public let date: Date
     public let state: RoomState?
     public let isAuthenticated: Bool
@@ -121,9 +121,11 @@ public struct LivingRoomWidget: Widget {
 public struct LivingRoomWidgetContent: View {
     public let entry: LivingRoomEntry
     @Environment(\.widgetFamily) private var family
+    private let familyOverride: WidgetFamily?
 
-    public init(entry: LivingRoomEntry) {
+    public init(entry: LivingRoomEntry, familyOverride: WidgetFamily? = nil) {
         self.entry = entry
+        self.familyOverride = familyOverride
     }
 
     public var body: some View {
@@ -137,7 +139,7 @@ public struct LivingRoomWidgetContent: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
         } else if let state = entry.state {
-            if family == .systemMedium {
+            if (familyOverride ?? family) == .systemMedium {
                 mediumView(state)
             } else {
                 smallView(state)
