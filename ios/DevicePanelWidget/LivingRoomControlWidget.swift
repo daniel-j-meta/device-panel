@@ -28,10 +28,13 @@ struct LivingRoomControlWidget: ControlWidget {
     let kind = "LivingRoomControlWidget"
 
     var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: kind) {
+        StaticControlConfiguration(
+            kind: kind,
+            provider: LivingRoomControlValueProvider()
+        ) { isOn in
             ControlWidgetToggle(
                 "Living Room",
-                isOn: LivingRoomControlValueProvider(),
+                isOn: isOn,
                 action: SetPowerControlIntent()
             ) { isOn in
                 Label(isOn ? "On" : "Off", systemImage: isOn ? "lightbulb.fill" : "lightbulb.slash")
