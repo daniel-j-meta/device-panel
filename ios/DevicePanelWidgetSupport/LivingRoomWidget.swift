@@ -70,9 +70,25 @@ public struct LivingRoomProvider: TimelineProvider {
     }
 
     private func loadEntry(completion: @escaping (LivingRoomEntry) -> Void) {
+        let completion = CompletionBox(completion)
         Task {
-            completion(await loader.load())
+            completion.call(await loader.load())
         }
+    }
+}
+
+// WidgetKit's TimelineProvider callbacks predate Swift 6 sendability annotations.
+// WidgetKit owns their lifetime and permits exactly one call, so this wrapper is
+// the narrow unchecked boundary between that callback API and structured concurrency.
+private final class CompletionBox<Value>: @unchecked Sendable {
+    private let completion: (Value) -> Void
+
+    init(_ completion: @escaping (Value) -> Void) {
+        self.completion = completion
+    }
+
+    func call(_ value: Value) {
+        completion(value)
     }
 }
 
