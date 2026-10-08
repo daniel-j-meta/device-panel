@@ -1,5 +1,6 @@
 package com.danieljomaa.devicepanel.domain
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.danieljomaa.devicepanel.data.DevicePanelApi
@@ -288,6 +289,7 @@ class DevicePanelViewModel(
     }
 
     private suspend fun handle(error: Exception) {
+        Log.e("DevicePanel", "Device Panel operation failed", error)
         if (error is DevicePanelException.AuthenticationRequired) {
             sessionStore.clear()
             session = null

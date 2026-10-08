@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 final class DevicePanelUITests: XCTestCase {
     private var server: LocalDevicePanelServer!
     private var app: XCUIApplication!
