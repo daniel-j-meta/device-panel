@@ -22,7 +22,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -39,4 +39,12 @@ jobs:
           xcodebuild test \
             -project DevicePanel.xcodeproj \
             -scheme DevicePanel \
-            -destination "platform=iOS Simulator,id=$SIMULATOR_ID"
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -resultBundlePath TestResults.xcresult
+
+      - name: Upload Xcode test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results
+          path: ios/TestResults.xcresult

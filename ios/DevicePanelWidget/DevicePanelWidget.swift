@@ -1,4 +1,5 @@
 import DevicePanelWidgetSupport
+import SwiftUI
 import WidgetKit
 
 @main

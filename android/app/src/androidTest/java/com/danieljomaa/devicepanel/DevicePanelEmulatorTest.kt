@@ -128,11 +128,19 @@ class DevicePanelEmulatorTest {
     }
 
     private fun assertState(tag: String, value: String) {
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(
-                SemanticsMatcher.expectValue(SemanticsProperties.TestTag, tag) and
-                    SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value),
-            ).fetchSemanticsNodes().isNotEmpty()
+        try {
+            compose.waitUntil(5_000) {
+                compose.onAllNodes(
+                    SemanticsMatcher.expectValue(SemanticsProperties.TestTag, tag) and
+                        SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value),
+                ).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (error: AssertionError) {
+            compose.onRoot().printToLog("DevicePanelStateFailure")
+            throw AssertionError(
+                "Timed out waiting for $tag to report '$value'; server=${dispatcher.snapshot()}, paths=${dispatcher.paths()}",
+                error,
+            )
         }
         compose.onNodeWithTag(tag).assert(
             SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value),
@@ -140,6 +148,13 @@ class DevicePanelEmulatorTest {
     }
 
     private fun waitForServer(condition: (StatefulApiDispatcher.Snapshot) -> Boolean) {
-        compose.waitUntil(5_000) { condition(dispatcher.snapshot()) }
+        try {
+            compose.waitUntil(5_000) { condition(dispatcher.snapshot()) }
+        } catch (error: AssertionError) {
+            throw AssertionError(
+                "Timed out waiting for loopback server; server=${dispatcher.snapshot()}, paths=${dispatcher.paths()}",
+                error,
+            )
+        }
     }
 }
