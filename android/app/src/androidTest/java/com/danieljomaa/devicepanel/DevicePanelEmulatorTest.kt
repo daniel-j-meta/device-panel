@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.percentOffset
 import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
@@ -83,7 +84,7 @@ class DevicePanelEmulatorTest {
         compose.onNodeWithTag("errorBanner").assertExists()
         assertState("powerControl", "On")
 
-        compose.onNodeWithTag("retryCommand").performClick()
+        compose.onNodeWithTag("retryCommand").performScrollTo().performClick()
         waitForServer { !it.on }
         assertState("powerControl", "Off")
 
