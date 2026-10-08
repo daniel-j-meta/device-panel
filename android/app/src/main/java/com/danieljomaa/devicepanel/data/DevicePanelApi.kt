@@ -46,7 +46,13 @@ class OkHttpDevicePanelApi(
     private val mediaType = "application/json; charset=utf-8".toMediaType()
 
     override suspend fun signIn(baseUrl: HttpUrl, request: SignInRequest): Session =
-        execute(baseUrl, "api/v1/sessions", "POST", body = json.encodeToString(request))
+        execute(
+            baseUrl,
+            "api/v1/sessions",
+            "POST",
+            body = json.encodeToString(request),
+            unauthorizedError = DevicePanelException.InvalidCredentials,
+        )
 
     override suspend fun signOut(baseUrl: HttpUrl, token: String) {
         executeEmpty(baseUrl, "api/v1/session", "DELETE", token)
@@ -87,9 +93,10 @@ class OkHttpDevicePanelApi(
         token: String? = null,
         body: String? = null,
         headers: Map<String, String> = emptyMap(),
+        unauthorizedError: DevicePanelException = DevicePanelException.AuthenticationRequired,
     ): T = withContext(Dispatchers.IO) {
         perform(baseUrl, path, method, token, body, headers).use {
-            validate(it)
+            validate(it, unauthorizedError)
             val value = it.body?.string() ?: throw DevicePanelException.InvalidResponse
             try {
                 json.decodeFromString<T>(value)
@@ -106,7 +113,9 @@ class OkHttpDevicePanelApi(
         token: String,
     ) {
         withContext(Dispatchers.IO) {
-            perform(baseUrl, path, method, token, null, emptyMap()).use(::validate)
+            perform(baseUrl, path, method, token, null, emptyMap()).use {
+                validate(it, DevicePanelException.AuthenticationRequired)
+            }
         }
     }
 
@@ -141,13 +150,13 @@ class OkHttpDevicePanelApi(
         }
     }
 
-    private fun validate(response: Response) {
+    private fun validate(response: Response, unauthorizedError: DevicePanelException) {
         if (response.isSuccessful) return
         val payload = response.body?.string()?.let {
             runCatching { json.decodeFromString<ApiErrorPayload>(it) }.getOrNull()
         }
         throw when (response.code) {
-            401 -> DevicePanelException.AuthenticationRequired
+            401 -> unauthorizedError
             403 -> DevicePanelException.PermissionDenied
             429 -> DevicePanelException.RateLimited(response.header("Retry-After")?.toLongOrNull())
             else -> DevicePanelException.Server(response.code, payload?.code, payload?.message)

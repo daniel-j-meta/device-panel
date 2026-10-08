@@ -63,7 +63,8 @@ public actor HTTPDevicePanelAPI: DevicePanelAPI {
             path: "/api/v1/sessions",
             method: "POST",
             token: nil,
-            body: try encoder.encode(request)
+            body: try encoder.encode(request),
+            unauthorizedError: .invalidCredentials
         )
     }
 
@@ -122,7 +123,8 @@ public actor HTTPDevicePanelAPI: DevicePanelAPI {
         method: String,
         token: String?,
         body: Data?,
-        commandID: UUID? = nil
+        commandID: UUID? = nil,
+        unauthorizedError: DevicePanelError = .authenticationRequired
     ) async throws -> Response {
         let (data, response) = try await perform(
             baseURL: baseURL,
@@ -132,7 +134,7 @@ public actor HTTPDevicePanelAPI: DevicePanelAPI {
             body: body,
             commandID: commandID
         )
-        try validate(response: response, data: data)
+        try validate(response: response, data: data, unauthorizedError: unauthorizedError)
         do {
             return try decoder.decode(Response.self, from: data)
         } catch {
@@ -155,7 +157,7 @@ public actor HTTPDevicePanelAPI: DevicePanelAPI {
             body: body,
             commandID: nil
         )
-        try validate(response: response, data: data)
+        try validate(response: response, data: data, unauthorizedError: .authenticationRequired)
     }
 
     private func perform(
@@ -212,11 +214,15 @@ public actor HTTPDevicePanelAPI: DevicePanelAPI {
         }
     }
 
-    private func validate(response: HTTPURLResponse, data: Data) throws {
+    private func validate(
+        response: HTTPURLResponse,
+        data: Data,
+        unauthorizedError: DevicePanelError
+    ) throws {
         guard (200 ... 299).contains(response.statusCode) else {
             switch response.statusCode {
             case 401:
-                throw DevicePanelError.authenticationRequired
+                throw unauthorizedError
             case 403:
                 throw DevicePanelError.permissionDenied
             case 429:

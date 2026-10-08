@@ -77,6 +77,12 @@ struct RoomControlView: View {
             .navigationTitle("Living Room")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button("Refresh", systemImage: "arrow.clockwise") {
+                        Task { await controller.refresh() }
+                    }
+                    .accessibilityIdentifier("refreshButton")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Settings", systemImage: "gearshape") {
                         showingSettings = true
                     }

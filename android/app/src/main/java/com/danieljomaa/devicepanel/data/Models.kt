@@ -125,6 +125,7 @@ data class ApiErrorPayload(val code: String? = null, val message: String? = null
 
 sealed class DevicePanelException(message: String) : Exception(message) {
     data object InvalidServerUrl : DevicePanelException("Enter a valid HTTPS Device Panel address.")
+    data object InvalidCredentials : DevicePanelException("Incorrect password.")
     data object AuthenticationRequired : DevicePanelException("Your session has expired. Sign in again.")
     data object PermissionDenied : DevicePanelException("This device cannot control the room.")
     data object Offline : DevicePanelException("Device Panel is offline. Check your connection and try again.")

@@ -17,6 +17,7 @@ struct APIErrorPayload: Decodable, Sendable {
 
 public enum DevicePanelError: Error, Equatable, Sendable {
     case invalidServerURL
+    case invalidCredentials
     case authenticationRequired
     case permissionDenied
     case offline
@@ -33,6 +34,8 @@ extension DevicePanelError: LocalizedError {
         switch self {
         case .invalidServerURL:
             "Enter a valid HTTPS Device Panel address."
+        case .invalidCredentials:
+            "Incorrect password."
         case .authenticationRequired:
             "Your session has expired. Sign in again."
         case .permissionDenied:

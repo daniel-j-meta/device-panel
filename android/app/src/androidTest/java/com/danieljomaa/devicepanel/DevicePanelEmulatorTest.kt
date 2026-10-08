@@ -111,6 +111,22 @@ class DevicePanelEmulatorTest {
         compose.onNodeWithText("Your session has expired. Sign in again.").assertExists()
     }
 
+    @Test
+    fun incorrectPasswordStaysSignedOut() {
+        val loopbackUrl = server.url("/").newBuilder().host("127.0.0.1").build()
+        compose.onNodeWithTag("serverUrlField").performTextInput(loopbackUrl.toString().removeSuffix("/"))
+        compose.onNodeWithTag("passwordField").performTextInput("wrong-password")
+        compose.onNodeWithTag("signInButton").performClick()
+
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(
+                SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "signInError"),
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Incorrect password.").assertExists()
+        check(dispatcher.paths() == listOf("/api/v1/sessions"))
+    }
+
     private fun signIn() {
         val loopbackUrl = server.url("/").newBuilder().host("127.0.0.1").build()
         compose.onNodeWithTag("serverUrlField").performTextInput(loopbackUrl.toString().removeSuffix("/"))

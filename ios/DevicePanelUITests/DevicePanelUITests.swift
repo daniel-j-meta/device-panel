@@ -23,21 +23,21 @@ final class DevicePanelUITests: XCTestCase {
 
         let power = app.buttons["powerControl"]
         XCTAssertTrue(power.waitForExistence(timeout: 5))
-        XCTAssertEqual(power.value as? String, "Off")
+        waitForPower(on: false, app: app)
 
         power.tap()
-        waitForValue("On", element: power)
         server.waitForRoom { $0.on }
+        waitForPower(on: true, app: app)
 
         let brightness75 = app.buttons["brightness75"]
         brightness75.tap()
-        waitForValue("Selected", element: brightness75)
         server.waitForRoom { $0.brightness == 75 }
+        waitForValue("Selected", element: brightness75)
 
         let red = app.buttons["colorRed"]
         red.tap()
-        waitForValue("Selected", element: red)
         server.waitForRoom { $0.colorMode == "red" }
+        waitForValue("Selected", element: red)
 
         let temperature = app.sliders["temperatureSlider"]
         temperature.adjust(toNormalizedSliderPosition: 0.25)
@@ -48,19 +48,21 @@ final class DevicePanelUITests: XCTestCase {
         server.failNextCommandRequest()
         power.tap()
         XCTAssertTrue(app.descendants(matching: .any)["errorBanner"].waitForExistence(timeout: 5))
-        waitForValue("On", element: power)
+        waitForPower(on: true, app: app)
 
-        app.buttons["Retry Command"].tap()
-        waitForValue("Off", element: power)
+        let retry = app.buttons["Retry Command"]
+        if !retry.isHittable { app.swipeUp() }
+        retry.tap()
         server.waitForRoom { !$0.on }
+        waitForPower(on: false, app: app)
 
         server.setRoom {
             $0.on = true
             $0.brightness = 10
             $0.colorTemperaturePct = 80
         }
-        app.swipeDown()
-        waitForValue("On", element: power)
+        app.buttons["refreshButton"].tap()
+        waitForPower(on: true, app: app)
         waitForValue("Selected", element: app.buttons["brightness10"])
 
         XCTAssertFalse(server.requestedPaths.isEmpty)
@@ -74,10 +76,30 @@ final class DevicePanelUITests: XCTestCase {
         launchAndSignIn(app)
         server.expireNextAuthenticatedRequest()
 
-        app.swipeDown()
+        app.buttons["refreshButton"].tap()
 
         XCTAssertTrue(app.textFields["serverURLField"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Your session has expired. Sign in again."].exists)
+    }
+
+    @MainActor
+    func testIncorrectPasswordStaysSignedOut() {
+        let app = makeApp()
+        defer { app.terminate() }
+        app.launch()
+
+        let serverField = app.textFields["serverURLField"]
+        XCTAssertTrue(serverField.waitForExistence(timeout: 5))
+        serverField.tap()
+        serverField.typeText(server.baseURL)
+        let password = app.secureTextFields["passwordField"]
+        password.tap()
+        password.typeText("wrong-password")
+        app.buttons["signInButton"].tap()
+
+        XCTAssertTrue(app.staticTexts["Incorrect password."].waitForExistence(timeout: 5))
+        XCTAssertTrue(server.requestedPaths.contains("/api/v1/sessions"))
+        XCTAssertFalse(app.navigationBars["Living Room"].exists)
     }
 
     @MainActor
@@ -106,6 +128,15 @@ final class DevicePanelUITests: XCTestCase {
     }
 
     @MainActor
+    private func waitForPower(on: Bool, app: XCUIApplication) {
+        let label = on ? "Living Room is on" : "Living Room is off"
+        XCTAssertTrue(
+            app.staticTexts[label].waitForExistence(timeout: 5),
+            "Expected \(label); server=\(server.snapshot), paths=\(server.requestedPaths)"
+        )
+    }
+
+    @MainActor
     private func waitForValue(
         _ value: String,
         element: XCUIElement,
@@ -118,7 +149,7 @@ final class DevicePanelUITests: XCTestCase {
         XCTAssertEqual(
             XCTWaiter.wait(for: [expectation], timeout: timeout),
             .completed,
-            "Expected \(element) to have value \(value)",
+            "Expected \(element) to have value \(value); server=\(server.snapshot), paths=\(server.requestedPaths)",
             file: file,
             line: line
         )

@@ -86,6 +86,29 @@ final class HTTPDevicePanelAPITests: XCTestCase {
         }
     }
 
+    func testMapsUnauthorizedSignInToInvalidCredentials() async {
+        URLProtocolStub.handler = { request in
+            let response = try XCTUnwrap(HTTPURLResponse(
+                url: try XCTUnwrap(request.url),
+                statusCode: 401,
+                httpVersion: nil,
+                headerFields: nil
+            ))
+            return (response, Data("{\"code\":\"INVALID_CREDENTIALS\",\"message\":\"Incorrect password\"}".utf8))
+        }
+
+        let client = HTTPDevicePanelAPI(session: makeSession())
+        do {
+            _ = try await client.signIn(
+                baseURL: URL(string: "https://panel.example")!,
+                request: SignInRequest(password: "wrong", clientId: UUID(), deviceName: "Test iPhone")
+            )
+            XCTFail("Expected invalidCredentials")
+        } catch {
+            XCTAssertEqual(error as? DevicePanelError, .invalidCredentials)
+        }
+    }
+
     func testLoopbackModeRejectsExternalHostsBeforeStartingARequest() async {
         URLProtocolStub.handler = { _ in
             XCTFail("An external request must not start in loopback-only mode")
