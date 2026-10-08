@@ -81,6 +81,11 @@ class DevicePanelEmulatorTest {
 
         dispatcher.failNextCommand()
         compose.onNodeWithTag("powerControl").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(
+                SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "errorBanner"),
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("errorBanner").assertExists()
         assertState("powerControl", "On")
 

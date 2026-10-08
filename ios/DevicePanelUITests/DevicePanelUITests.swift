@@ -79,7 +79,10 @@ final class DevicePanelUITests: XCTestCase {
         app.buttons["refreshButton"].tap()
 
         XCTAssertTrue(app.textFields["serverURLField"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Your session has expired. Sign in again."].exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["Sign-in error: Your session has expired. Sign in again."]
+                .waitForExistence(timeout: 5)
+        )
     }
 
     @MainActor
@@ -97,7 +100,10 @@ final class DevicePanelUITests: XCTestCase {
         password.typeText("wrong-password")
         app.buttons["signInButton"].tap()
 
-        XCTAssertTrue(app.staticTexts["Incorrect password."].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["Sign-in error: Incorrect password."]
+                .waitForExistence(timeout: 5)
+        )
         XCTAssertTrue(server.requestedPaths.contains("/api/v1/sessions"))
         XCTAssertFalse(app.navigationBars["Living Room"].exists)
     }
