@@ -34,6 +34,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.danieljomaa.devicepanel.core
         SKIP_INSTALL: true
         DEFINES_MODULE: true
+        GENERATE_INFOPLIST_FILE: true
 
   DevicePanel:
     type: application
@@ -121,6 +122,7 @@ targets:
         SKIP_INSTALL: true
         DEFINES_MODULE: true
         APPLICATION_EXTENSION_API_ONLY: true
+        GENERATE_INFOPLIST_FILE: true
 
   DevicePanelCoreTests:
     type: bundle.unit-test
@@ -132,6 +134,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.danieljomaa.devicepanel.core-tests
+        GENERATE_INFOPLIST_FILE: true
 
   DevicePanelUITests:
     type: bundle.ui-testing
@@ -143,6 +146,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.danieljomaa.devicepanel.ui-tests
+        GENERATE_INFOPLIST_FILE: true
 
   DevicePanelWidgetTests:
     type: bundle.unit-test
@@ -155,6 +159,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.danieljomaa.devicepanel.widget-tests
+        GENERATE_INFOPLIST_FILE: true
 
 schemes:
   DevicePanel:
